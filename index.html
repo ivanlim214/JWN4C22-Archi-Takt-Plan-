@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Takt Space-Time Matrix</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f4f6fb; --surface:#fff; --surface2:#f0f2f8;
+  --border:#e2e6f0; --border2:#c8cfe8;
+  --text:#1a1f36; --muted:#6b7280; --faint:#9ca3af;
+  --accent:#1e40af;
+  --font:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;min-height:100vh}
+
+/* ── TOP BAR ── */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border2);padding:0 24px;display:flex;align-items:stretch;position:sticky;top:0;z-index:200;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.logo{font-size:15px;font-weight:700;color:var(--text);padding:0 20px 0 0;margin-right:16px;border-right:1px solid var(--border);display:flex;align-items:center;letter-spacing:-.3px;white-space:nowrap}
+.logo span{color:var(--accent)}
+.block-tabs{display:flex;align-items:stretch}
+.btab{font-family:var(--font);font-size:12px;font-weight:500;padding:0 16px;cursor:pointer;color:var(--muted);border:none;border-bottom:3px solid transparent;background:none;transition:all .15s;white-space:nowrap;height:50px;display:flex;align-items:center;flex-direction:column;justify-content:center;gap:1px}
+.btab:hover{color:var(--text);background:var(--surface2)}
+.btab.on{color:var(--accent);border-bottom-color:var(--accent);background:rgba(30,64,175,.04)}
+.btab .bn{font-size:12px;font-weight:600}
+.btab .bs{font-size:9px;font-weight:400;color:var(--faint)}
+.btab.on .bs{color:var(--accent);opacity:.7}
+
+/* view toggle */
+.view-sep{width:1px;background:var(--border2);margin:10px 12px}
+.vtab{font-family:var(--font);font-size:11px;font-weight:500;padding:0 14px;cursor:pointer;color:var(--muted);border:none;border-bottom:3px solid transparent;background:none;transition:all .15s;height:50px;white-space:nowrap}
+.vtab:hover{color:var(--text)}
+.vtab.on{color:#0f766e;border-bottom-color:#0f766e}
+
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px;padding-left:14px;border-left:1px solid var(--border)}
+.pill{font-size:10px;background:var(--surface2);border:1px solid var(--border2);border-radius:20px;padding:4px 10px;color:var(--muted);font-family:var(--mono);white-space:nowrap}
+.print-btn{font-size:10px;padding:5px 12px;cursor:pointer;border:1px solid var(--border2);background:var(--surface2);border-radius:5px;color:var(--muted);font-family:var(--font)}
+.print-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── CONTROLS ── */
+.ctrl-wrap{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.cg{display:flex;flex-direction:column;gap:4px}
+.cl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.9px;font-weight:600}
+.ctrl-wrap input{font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:5px 9px;outline:none;transition:border .15s}
+.ctrl-wrap input:focus{border-color:var(--accent)}
+.gbtn{font-family:var(--font);font-size:11px;font-weight:600;padding:6px 16px;cursor:pointer;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;letter-spacing:.3px;transition:all .15s}
+.gbtn:hover{background:#1e3a8a}
+
+/* ── LEGEND ── */
+.legend-wrap{background:var(--surface);border-bottom:1px solid var(--border);padding:7px 24px;display:flex;flex-wrap:wrap;gap:5px 12px;align-items:center}
+.legend-title{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.9px;font-weight:600;margin-right:4px}
+.li{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);white-space:nowrap}
+.li .dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.legend-sep{width:1px;height:14px;background:var(--border);margin:0 4px}
+.sli{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);white-space:nowrap}
+.sli .sdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* ── MAIN ── */
+.main{padding:16px 24px}
+.scroll-outer{overflow:auto;border:1px solid var(--border2);border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);background:var(--surface);max-height:calc(100vh - 230px)}
+
+/* ── SHARED TABLE BASE ── */
+table{border-collapse:collapse;white-space:nowrap}
+thead{position:sticky;top:0;z-index:20}
+
+/* sticky left col */
+.tc{position:sticky;left:0;z-index:10}
+thead .tc{z-index:25}
+
+/* week header */
+.wh{min-width:58px;max-width:58px;text-align:center;padding:4px 2px;font-family:var(--mono)}
+.wh.mo-h{font-size:9px;color:var(--muted);font-weight:600;letter-spacing:.3px;padding:3px 2px}
+.wh.wk-h{font-size:9px;color:var(--muted);font-weight:400;border-right:1px solid var(--border)}
+.wh.today-h{color:#b45309;font-weight:700;background:#fffbeb!important}
+.wh.past-h{color:#c0c4d0}
+
+/* data cell */
+.dc{padding:2px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);min-width:58px;max-width:58px;vertical-align:middle}
+.dc.today-col{background:rgba(180,83,9,.04)!important}
+
+/* ─── MATRIX VIEW (trade rows) ─── */
+table.mx thead tr:nth-child(1) th{background:#f8f9fc;border-bottom:1px solid var(--border)}
+table.mx thead tr:nth-child(2) th{background:#f0f2f8;border-bottom:2px solid var(--border2)}
+table.mx .tc{min-width:150px;max-width:150px}
+table.mx thead .tc{background:#f0f2f8}
+table.mx tr.grp-row td{background:#eef1f8;padding:3px 10px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--border2);border-top:1px solid var(--border2)}
+table.mx tr.grp-row td.tc{background:#eef1f8}
+
+/* ─── FLOW VIEW (level rows) ─── */
+table.fl thead tr:nth-child(1) th{background:#f8f9fc;border-bottom:1px solid var(--border)}
+table.fl thead tr:nth-child(2) th{background:#f0f2f8;border-bottom:2px solid var(--border2)}
+table.fl .tc{min-width:90px;max-width:90px;background:var(--surface);border-right:2px solid var(--border2);padding:0;text-align:center}
+table.fl thead .tc{background:#f0f2f8}
+
+/* level label in flow view */
+.lvl-label{display:flex;flex-direction:column;align-items:center;justify-content:center;height:44px;gap:2px}
+.lvl-num{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text)}
+.lvl-sub{font-size:8px;color:var(--faint)}
+.lvl-done .lvl-num{color:var(--muted)}
+
+/* flow cell */
+.fcell{display:flex;flex-direction:column;align-items:center;justify-content:center;height:44px;border-radius:4px;cursor:default;position:relative;padding:2px 3px}
+.fcell:hover{filter:brightness(.88)}
+.fcell .tn{font-family:var(--mono);font-size:9px;font-weight:700;line-height:1.2;text-align:center;white-space:normal;overflow:hidden;max-width:54px}
+.fcell .td{font-family:var(--mono);font-size:8px;line-height:1;margin-top:1px;opacity:.8}
+
+/* matrix cell */
+.cell{display:flex;flex-direction:column;align-items:center;justify-content:center;height:38px;border-radius:4px;cursor:default;position:relative;padding:2px 1px}
+.cell:hover{filter:brightness(.88)}
+.cell .lv{font-family:var(--mono);font-size:12px;font-weight:700;line-height:1;letter-spacing:-.3px}
+.cell .pct{font-family:var(--mono);font-size:8px;line-height:1;margin-top:1px;opacity:.9;font-weight:600}
+
+/* today accent */
+td.today-col .cell, td.today-col .fcell{border-left:2px solid #f59e0b}
+
+/* now badge */
+.now-badge{position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:7px;background:#f59e0b;color:#fff;border-radius:3px;padding:1px 4px;font-weight:700;white-space:nowrap;pointer-events:none;z-index:5}
+
+/* ── EDITABLE DATA TABLE ── */
+.data-wrap{overflow:auto;border:1px solid var(--border2);border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);background:var(--surface);max-height:calc(100vh - 230px)}
+table.dt{border-collapse:collapse;width:100%;font-size:11px;white-space:nowrap}
+table.dt thead{position:sticky;top:0;z-index:20}
+table.dt th{background:#f0f2f8;padding:8px 12px;border:1px solid var(--border2);font-size:9px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:600;white-space:nowrap}
+table.dt th.dt-trade{position:sticky;left:0;z-index:5;min-width:160px;text-align:left}
+table.dt td{padding:5px 8px;border:1px solid var(--border);vertical-align:middle}
+table.dt td.dt-trade-cell{position:sticky;left:0;z-index:1;background:inherit;padding:7px 12px;border-right:2px solid var(--border2);min-width:160px}
+table.dt tr.dt-grp td{background:#eef1f8;padding:4px 12px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border:1px solid var(--border2)}
+.lvl-spinner{display:flex;align-items:center;gap:0;border:1px solid var(--border2);border-radius:7px;overflow:hidden;background:#fff;width:fit-content;margin:0 auto}
+.lvl-spinner button{width:26px;height:28px;border:none;background:var(--surface2);color:var(--text);font-size:14px;cursor:pointer;font-weight:700;display:flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0;line-height:1}
+.lvl-spinner button:hover{background:#c8cfe8}
+.lvl-spinner input[type=number]{width:44px;height:28px;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);text-align:center;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--text);background:#fff;outline:none;-moz-appearance:textfield}
+.lvl-spinner input[type=number]::-webkit-inner-spin-button{display:none}
+.note-input{width:100%;min-width:260px;font-family:var(--font);font-size:11px;color:var(--text);border:1px solid var(--border);border-radius:5px;padding:5px 8px;background:#fff;outline:none;resize:none;line-height:1.4;transition:border .15s}
+.note-input:focus{border-color:var(--accent)}
+.pct-bar{display:flex;flex-direction:column;align-items:center;gap:3px}
+.pct-label{font-family:var(--mono);font-weight:700;font-size:11px;padding:2px 7px;border-radius:4px}
+.pct-track{width:70px;height:5px;background:#e2e6f0;border-radius:3px;overflow:hidden}
+.pct-fill{height:5px;border-radius:3px;transition:width .3s}
+.apply-btn{font-family:var(--font);font-size:11px;font-weight:600;padding:6px 18px;cursor:pointer;border-radius:7px;border:1px solid #15803d;background:#15803d;color:#fff;letter-spacing:.3px;transition:all .15s;white-space:nowrap}
+.apply-btn:hover{background:#166534}
+.save-ok{font-size:11px;color:#15803d;font-weight:500;opacity:0;transition:opacity .3s}
+.reset-btn{font-family:var(--font);font-size:11px;padding:6px 14px;cursor:pointer;border-radius:7px;border:1px solid var(--border2);background:var(--surface2);color:var(--muted);transition:all .15s}
+.reset-btn:hover{border-color:#dc2626;color:#dc2626}
+.export-btn{font-family:var(--font);font-size:11px;padding:6px 14px;cursor:pointer;border-radius:7px;border:1px solid #0e7490;background:rgba(14,116,144,.08);color:#0e7490;font-weight:600;transition:all .15s;white-space:nowrap}
+.export-btn:hover{background:#0e7490;color:#fff}
+.import-btn{font-family:var(--font);font-size:11px;padding:6px 14px;cursor:pointer;border-radius:7px;border:1px solid #7c3aed;background:rgba(124,58,237,.08);color:#7c3aed;font-weight:600;transition:all .15s;white-space:nowrap}
+.import-btn:hover{background:#7c3aed;color:#fff}
+.data-toolbar{display:flex;align-items:center;gap:8px;padding:10px 0 14px;flex-wrap:wrap}
+.changed-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#f59e0b;margin-left:5px;vertical-align:middle}
+.toolbar-sep{width:1px;height:22px;background:var(--border2);margin:0 2px}
+/* import modal overlay */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center}
+.modal-box{background:#fff;border-radius:14px;padding:28px 32px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px}
+.modal-sub{font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.6}
+.modal-btns{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+.modal-cancel{font-family:var(--font);font-size:12px;padding:7px 16px;cursor:pointer;border-radius:7px;border:1px solid var(--border2);background:var(--surface2);color:var(--muted)}
+.modal-confirm{font-family:var(--font);font-size:12px;font-weight:600;padding:7px 16px;cursor:pointer;border-radius:7px;border:1px solid #15803d;background:#15803d;color:#fff}
+.drop-zone{border:2px dashed var(--border2);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface2)}
+.drop-zone:hover,.drop-zone.drag-over{border-color:#7c3aed;background:rgba(124,58,237,.05)}
+.drop-zone input{display:none}
+.drop-icon{font-size:32px;margin-bottom:8px}
+.drop-label{font-size:13px;color:var(--muted)}
+.drop-hint{font-size:10px;color:var(--faint);margin-top:4px}
+.import-preview{margin-top:16px;border:1px solid var(--border);border-radius:8px;overflow:auto;max-height:200px}
+.import-preview table{border-collapse:collapse;font-size:10px;width:100%}
+.import-preview th{background:#f0f2f8;padding:5px 8px;border:1px solid var(--border);color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+.import-preview td{padding:4px 8px;border:1px solid var(--border);color:var(--text);white-space:nowrap}
+.import-status{font-size:11px;margin-top:10px;padding:7px 12px;border-radius:6px;display:none}
+.import-ok{background:rgba(21,128,61,.1);color:#15803d;border:1px solid rgba(21,128,61,.3);display:block}
+.import-err{background:rgba(220,38,38,.1);color:#dc2626;border:1px solid rgba(220,38,38,.3);display:block}
+
+/* ── TOOLTIP ── */
+#tip{/* ── TOOLTIP ── */
+#tip{position:fixed;background:#1a1f36;color:#e8eaf0;border-radius:8px;padding:9px 13px;font-size:11px;line-height:1.7;pointer-events:none;z-index:9999;display:none;max-width:260px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+#tip .tip-hd{font-weight:700;font-size:12px;margin-bottom:2px}
+#tip .tip-st{font-size:10px;opacity:.7}
+
+/* ── INFO BAR ── */
+.info-bar{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;align-items:center}
+.info-item{font-size:10px;color:var(--muted)}
+.info-item strong{color:var(--text)}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<div id="tip"></div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">TAKT<span>.</span>matrix</div>
+  <!-- Block tabs -->
+  <div class="block-tabs" id="block-tabs"></div>
+  <!-- View toggle -->
+  <div class="view-sep"></div>
+  <button class="vtab on" id="vt-mx" onclick="switchView('matrix')">📊 Trade Matrix</button>
+  <button class="vtab" id="vt-fl" onclick="switchView('flow')">🏢 Trade Flow by Level</button>
+  <button class="vtab" id="vt-dt" onclick="switchView('data')">📋 Site Progress Data</button>
+  <div class="topbar-right">
+    <span class="pill" id="today-pill"></span>
+    <span class="pill" id="data-source-pill" style="color:#15803d;border-color:#bbf7d0;background:#f0fdf4"></span>
+    <span class="pill" id="progress-pill"></span>
+    <button class="print-btn" onclick="window.print()">⎙ Print</button>
+  </div>
+</div>
+
+<!-- CONTROLS -->
+<div class="ctrl-wrap">
+  <div class="cg"><span class="cl">Completion date (N)</span><input type="date" id="ctrl-end" value="2026-12-31" style="width:145px"></div>
+  <div class="cg"><span class="cl">Takt cadence (days/level)</span><input type="number" id="ctrl-takt" value="7" min="3" max="21" style="width:72px"></div>
+  <div class="cg"><span class="cl">Lead offset (N-?)</span><input type="number" id="ctrl-lead" value="3" min="1" max="8" style="width:60px"></div>
+  <div class="cg"><span class="cl">Weeks to show</span><input type="number" id="ctrl-weeks" value="60" min="20" max="120" style="width:72px"></div>
+  <div class="cg"><span class="cl">Weeks before today</span><input type="number" id="ctrl-past" value="8" min="0" max="30" style="width:72px"></div>
+  <button class="gbtn" onclick="renderCurrent()">Update</button>
+</div>
+
+<!-- LEGEND -->
+<div class="legend-wrap">
+  <span class="legend-title">Trades</span>
+  <div id="trade-legend" style="display:flex;flex-wrap:wrap;gap:5px 10px;align-items:center"></div>
+  <div class="legend-sep"></div>
+  <span class="legend-title" id="status-legend-title">Status</span>
+  <div id="status-legend-mx" style="display:flex;flex-wrap:wrap;gap:5px 10px;align-items:center">
+    <div class="sli"><div class="sdot" style="background:#1e40af"></div>Done</div>
+    <div class="sli"><div class="sdot" style="background:#22c55e"></div>Active now</div>
+    <div class="sli"><div class="sdot" style="background:#f59e0b"></div>Upcoming ≤2w</div>
+    <div class="sli"><div class="sdot" style="background:#d1d5db"></div>Future</div>
+    <div class="sli"><div class="sdot" style="background:#ef4444"></div>Overdue</div>
+  </div>
+  <div id="status-legend-fl" style="display:none;flex-wrap:wrap;gap:5px 10px;align-items:center">
+    <div class="sli"><div class="sdot" style="background:#6b7280"></div>Level complete (all trades done)</div>
+    <div class="sli"><div class="sdot" style="background:#22c55e"></div>Trade active this week</div>
+    <div class="sli"><div class="sdot" style="background:#f4f6fb;border:1px solid #e2e6f0"></div>No trade scheduled</div>
+  </div>
+</div>
+
+<!-- MATRIX / FLOW CONTAINER -->
+<div class="main">
+  <div class="scroll-outer" id="main-wrap"></div>
+  <div class="info-bar" id="info-bar"></div>
+</div>
+
+<script>
+/* ═══════════ DATA ═══════════ */
+const BLOCKS = [
+  {id:'402A',label:'402A',sub:'AWC', N:17},
+  {id:'402B',label:'402B',sub:'TT',  N:17},
+  {id:'404A',label:'404A',sub:'AWC', N:17},
+  {id:'404B',label:'404B',sub:'TT',  N:17},
+  {id:'406A',label:'406A',sub:'AWC', N:17},
+  {id:'406B',label:'406B',sub:'AWC', N:17},
+  {id:'402C',label:'402C',sub:'MSCP',N:6 },
+];
+
+const TRADES = [
+  {id:'conc',   name:'Conc/Structure',    short:'Conc',    days:7, grp:'Structure', color:'#1e40af',light:'#dbeafe'},
+  {id:'pc1',    name:'1st Postcon (N-3)', short:'PC1',     days:7, grp:'Structure', color:'#2563eb',light:'#eff6ff'},
+  {id:'pc2',    name:'2nd Postcon',       short:'PC2',     days:7, grp:'Structure', color:'#60a5fa',light:'#e0f2fe'},
+  {id:'mep',    name:'MEP / PCP',         short:'MEP',     days:7, grp:'M&E',       color:'#7c3aed',light:'#ede9fe'},
+  {id:'plaster',name:'Plastering',        short:'Plstr',   days:7, grp:'Wet',       color:'#92400e',light:'#fef3c7'},
+  {id:'skim',   name:'Skimming',          short:'Skim',    days:7, grp:'Wet',       color:'#b45309',light:'#fffbeb'},
+  {id:'win',    name:'Window',            short:'Win',     days:5, grp:'Envelope',  color:'#0f766e',light:'#ccfbf1'},
+  {id:'wp',     name:'Waterproofing',     short:'WP',      days:5, grp:'Wet',       color:'#0e7490',light:'#cffafe'},
+  {id:'wt',     name:'Wall Tile',         short:'WTile',   days:7, grp:'Tiling',    color:'#be185d',light:'#fce7f3'},
+  {id:'ft',     name:'Floor Tile',        short:'FTile',   days:7, grp:'Tiling',    color:'#9f1239',light:'#ffe4e6'},
+  {id:'wtp',    name:'Wall Tile Pointing',short:'WTP',     days:5, grp:'Tiling',    color:'#db2777',light:'#fdf2f8'},
+  {id:'ftp',    name:'Floor Tile Pointing',short:'FTP',   days:5, grp:'Tiling',    color:'#a21caf',light:'#faf5ff'},
+  {id:'tbx',    name:'Toilet Box-up',     short:'TBx',     days:5, grp:'Finishes',  color:'#065f46',light:'#d1fae5'},
+  {id:'dw',     name:'Drywall',           short:'DWall',   days:5, grp:'Finishes',  color:'#047857',light:'#ecfdf5'},
+  {id:'bc',     name:'Base Coat',         short:'Base',    days:5, grp:'Finishes',  color:'#15803d',light:'#f0fdf4'},
+  {id:'fc',     name:'Final Coat (2x)',   short:'Final',   days:7, grp:'Finishes',  color:'#166534',light:'#dcfce7'},
+  {id:'scr',    name:'Floor Screeding',   short:'Screed',  days:5, grp:'Finishes',  color:'#4d7c0f',light:'#ecfccb'},
+];
+
+// Progress data extracted from site tracker — 23 Apr 2026
+const CURRENT = {
+  '402A':{conc:17,pc1:17,pc2:16,mep:16,plaster:16,skim:15,win:16,wp:16,wt:16,ft:13,wtp:15,ftp:11,tbx:12,dw:10,bc:10,fc:0,scr:9},
+  '402B':{conc:15,pc1:12,pc2:10,mep:10,plaster:10,skim:9, win:10,wp:10,wt:8, ft:8, wtp:7, ftp:7, tbx:2, dw:2, bc:2, fc:0,scr:2},
+  '404A':{conc:16,pc1:13,pc2:10,mep:11,plaster:9, skim:9, win:10,wp:7, wt:6, ft:3, wtp:4, ftp:2, tbx:0, dw:4, bc:0, fc:0,scr:0},
+  '404B':{conc:12,pc1:11,pc2:8, mep:9, plaster:8, skim:7, win:8, wp:6, wt:3, ft:0, wtp:0, ftp:0, tbx:0, dw:4, bc:0, fc:0,scr:0},
+  '406A':{conc:14,pc1:11,pc2:10,mep:9, plaster:9, skim:7, win:8, wp:6, wt:4, ft:2, wtp:0, ftp:0, tbx:0, dw:3, bc:0, fc:0,scr:0},
+  '406B':{conc:15,pc1:12,pc2:10,mep:10,plaster:8, skim:7, win:9, wp:5, wt:3, ft:0, wtp:0, ftp:0, tbx:0, dw:3, bc:0, fc:0,scr:0},
+  '402C':{conc:0, pc1:0, pc2:0, mep:0, plaster:0, skim:0, win:0, wp:0, wt:0, ft:0, wtp:0, ftp:0, tbx:0, dw:0, bc:0, fc:0,scr:0},
+};
+
+// Site notes per block per trade (from Work Progress sheet 23 Apr 2026)
+const NOTES = {
+  '402A':{conc:'L18 structure',pc1:'L17-24 Apr · LR-WT Beam 27 Apr · material to hoist',pc2:'L16-100%',mep:'L16-100%',plaster:'L16-100%',skim:'L15 Unit 100% · Corridor 50% · 23 Apr',win:'L16-100%',wp:'L16-100%',wt:'L16-20%',ft:'L13-90% · 22 Apr',wtp:'L15 wall tile 100%',ftp:'L11 floor 100%',tbx:'L2-L9 frame+board done · L10-L12 frame only',dw:'L10-100%',bc:'L10',fc:'',scr:'L9-100% · L10 Delay'},
+  '402B':{conc:'L15',pc1:'L11 delay · 24 Apr PM · L12 25 Apr',pc2:'L10-90% · 24 Apr · 29 Apr',mep:'L10-100%',plaster:'L9-100% · L10-20%',skim:'L9 Unit 10% · Corridor 10% · 23 Apr',win:'L10-100% · level peg L10',wp:'L10-10%',wt:'L7-100% · L8-50% · 25 Apr',ft:'L8-0%',wtp:'L7 wall tile 50%',ftp:'L7 floor tile 50%',tbx:'L2-6 50% frame only',dw:'L2-7-100%',bc:'L2-7 · 25 Apr',fc:'',scr:'L2-5 · start after base paint'},
+  '404A':{conc:'L16',pc1:'L12-21 Apr · 27 Apr · L13-9 May',pc2:'L9 unit 100% · corridor 90% · L10 unit 10%',mep:'L11-100%',plaster:'L9 unit 30% · corridor 10%',skim:'L9 unit 20% · corridor 0% · 21 Apr',win:'L8-100% · L9-100% · L10-0%',wp:'L7-0%',wt:'L5-90% · 23 Apr · no more tile · L6 WIP',ft:'L2-100% · L3-30%',wtp:'L4 wall tile 100%',ftp:'L2 floor 100%',tbx:'',dw:'L2-100% · L3-85% · L4 started 21 Mar',bc:'',fc:'',scr:''},
+  '404B':{conc:'L12',pc1:'L10-28 Apr · L11-2 May',pc2:'L8',mep:'L9-35%',plaster:'L8 unit 25% · corridor 0%',skim:'L7 unit 90% · corridor 0% · 22 Apr',win:'L5-75% · L6-0% · L7-0% · L8-21 Apr',wp:'L5-100% · L6-?',wt:'L2-80% · 24 Apr · L3-10%',ft:'',wtp:'',ftp:'',tbx:'',dw:'L2-80% 27 Apr · L3-60% · L4-30%',bc:'',fc:'',scr:''},
+  '406A':{conc:'L14',pc1:'L11-24 Apr',pc2:'L9-23 Apr · L10-?',mep:'L9-80% · 22 Apr',plaster:'L8-25 Apr complete · L9-24 Apr start',skim:'L7 unit 10% · corridor 0%',win:'L5-95% · L6-0% · L7-50% · L8-50%',wp:'L5-100% · L6-?',wt:'L4-10%',ft:'L2-0%',wtp:'',ftp:'',tbx:'',dw:'L2-100% · L3-50% · 27 Apr',bc:'',fc:'',scr:''},
+  '406B':{conc:'L15',pc1:'L11-24 Apr · L12 TBC',pc2:'L10-? · LPCP to complete',mep:'L10-50%',plaster:'L7 unit 90% · corridor 0% · L8 started 16 Apr',skim:'L7 unit 10% · corridor 0%',win:'L4-0% · L5-0% · L6-50% · L7-50% · Material delivery issue',wp:'L3-100% · Hacking issue · L4-3 toilets 20% · L5-10 toilets',wt:'L2-30% · L3-10%',ft:'',wtp:'',ftp:'',tbx:'',dw:'L2-80% 21 Apr · L3-0%',bc:'',fc:'',scr:''},
+  '402C':{conc:'MSCP - 6 levels',pc1:'4A 18 Apr · 4B 22 Apr',pc2:'3A 18 Apr',mep:'',plaster:'',skim:'',win:'',wp:'',wt:'',ft:'',wtp:'',ftp:'',tbx:'',dw:'',bc:'',fc:'',scr:''},
+};
+
+const NA_402C = new Set(['plaster','skim','wt','ft','wtp','ftp','tbx','bc','fc']);
+
+/* ═══════════ HELPERS ═══════════ */
+const TODAY = (()=>{const d=new Date();d.setHours(0,0,0,0);return d})();
+const add  = (d,n)=>{const r=new Date(d);r.setDate(r.getDate()+n);return r};
+const fmt  = d=>d.toLocaleDateString('en-SG',{day:'2-digit',month:'short',year:'2-digit'});
+const fmtS = d=>d.toLocaleDateString('en-SG',{day:'2-digit',month:'short'});
+const diff = (a,b)=>Math.round((b-a)/86400000);
+const sowk = d=>{const r=new Date(d);r.setDate(r.getDate()-((r.getDay()+6)%7));r.setHours(0,0,0,0);return r};
+const hexA = (h,a)=>{const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return `rgba(${r},${g},${b},${a})`};
+
+/* ═══════════ SCHEDULE ENGINE ═══════════ */
+function buildSchedule(endDate, N, takt){
+  const cache={};
+  function sched(ti){
+    if(cache[ti]) return cache[ti];
+    const tr=TRADES[ti], w={};
+    for(let lvl=N;lvl>=1;lvl--){
+      let s,e;
+      if(ti===0){
+        e=add(endDate,-(N-lvl)*takt);
+        s=add(e,-takt);
+      } else {
+        const prev=sched(ti-1);
+        const prevE=prev[lvl]?prev[lvl].end:add(endDate,-(N-lvl)*takt);
+        s=add(prevE,takt);
+        e=add(s,tr.days);
+      }
+      w[lvl]={start:s,end:e};
+    }
+    cache[ti]=w; return w;
+  }
+  return TRADES.map((_,i)=>sched(i));
+}
+
+function levelInWeek(scheds,ti,wk,N){
+  const wEnd=add(wk,6);
+  for(let lvl=N;lvl>=1;lvl--){
+    const c=scheds[ti][lvl];
+    if(c&&wk<=c.end&&wEnd>=c.start) return lvl;
+  }
+  return null;
+}
+
+/* trade active at a given LEVEL during a given week */
+function tradeInLevelWeek(scheds,lvl,wk,bkId){
+  const wEnd=add(wk,6);
+  const bk=BLOCKS.find(b=>b.id===bkId);
+  // return array of trade indices active this week at this level
+  const active=[];
+  TRADES.forEach((tr,ti)=>{
+    if(NA_402C.has(tr.id)&&bkId==='402C') return;
+    const c=scheds[ti][lvl];
+    if(c&&wk<=c.end&&wEnd>=c.start) active.push(ti);
+  });
+  return active;
+}
+
+/* cell display status for matrix view */
+function cellStatus(ti,lvl,bkId,wk){
+  const cur=(CURRENT[bkId]||{})[TRADES[ti].id]||0;
+  const bk=BLOCKS.find(b=>b.id===bkId);
+  if(NA_402C.has(TRADES[ti].id)&&bkId==='402C') return 'na';
+  if(cur>=bk.N) return 'comp';
+  if(!lvl) return null;
+  if(lvl<=cur) return 'done';
+  const wEnd=add(wk,6);
+  if(wEnd<TODAY) return 'over';
+  if(lvl===cur+1){const d=diff(TODAY,wk);if(d>=0&&d<=14)return 'soon';return 'act';}
+  const d=diff(TODAY,wk);if(d>=0&&d<=14)return 'soon';
+  return 'fut';
+}
+
+/* ═══════════ STATE ═══════════ */
+let activeBlock='402A';
+let activeView='matrix'; // 'matrix' | 'flow'
+
+/* ═══════════ BLOCK TABS ═══════════ */
+function buildBlockTabs(){
+  const wrap=document.getElementById('block-tabs');
+  BLOCKS.forEach(bk=>{
+    const b=document.createElement('button');
+    b.className='btab'+(bk.id===activeBlock?' on':'');
+    b.innerHTML=`<span class="bn">${bk.label}</span><span class="bs">${bk.sub} · N=L${bk.N}</span>`;
+    b.onclick=()=>{
+      activeBlock=bk.id;
+      document.querySelectorAll('.btab').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      renderCurrent();
+    };
+    wrap.appendChild(b);
+  });
+}
+
+/* ═══════════ TRADE LEGEND ═══════════ */
+function buildTradeLegend(){
+  const wrap=document.getElementById('trade-legend');
+  TRADES.forEach(tr=>{
+    const d=document.createElement('div');
+    d.className='li';
+    d.innerHTML=`<div class="dot" style="background:${tr.color}"></div>${tr.short}`;
+    d.title=tr.name;
+    wrap.appendChild(d);
+  });
+}
+
+/* ═══════════ VIEW SWITCH ═══════════ */
+function switchView(v){
+  activeView=v;
+  document.getElementById('vt-mx').classList.toggle('on',v==='matrix');
+  document.getElementById('vt-fl').classList.toggle('on',v==='flow');
+  document.getElementById('vt-dt').classList.toggle('on',v==='data');
+  document.getElementById('status-legend-mx').style.display=v==='matrix'?'flex':'none';
+  document.getElementById('status-legend-fl').style.display=v==='flow'?'flex':'none';
+  renderCurrent();
+}
+
+/* ═══════════════════════════════════════════════
+   DATA VIEW — editable site progress table
+═══════════════════════════════════════════════ */
+
+/* localStorage persistence */
+const LS_KEY = 'takt_progress_v1';
+function saveToLS(){
+  try{localStorage.setItem(LS_KEY,JSON.stringify({CURRENT,NOTES}));}catch(e){}
+}
+function loadFromLS(){
+  try{
+    const d=JSON.parse(localStorage.getItem(LS_KEY)||'null');
+    if(!d) return;
+    Object.keys(d.CURRENT||{}).forEach(bk=>{
+      if(CURRENT[bk]) Object.assign(CURRENT[bk],d.CURRENT[bk]);
+    });
+    Object.keys(d.NOTES||{}).forEach(bk=>{
+      if(NOTES[bk]) Object.assign(NOTES[bk],d.NOTES[bk]);
+    });
+  }catch(e){}
+}
+
+function pctColors(pct){
+  if(pct>=80) return {c:'#15803d',bg:'rgba(21,128,61,0.12)'};
+  if(pct>=50) return {c:'#1e40af',bg:'rgba(30,64,175,0.12)'};
+  if(pct>=20) return {c:'#b45309',bg:'rgba(180,83,9,0.12)'};
+  return {c:'#dc2626',bg:'rgba(220,38,38,0.12)'};
+}
+
+function renderData(){
+  const bk=BLOCKS.find(b=>b.id===activeBlock);
+
+  // ── toolbar ──
+  const toolbar=`<div class="data-toolbar">
+    <span style="font-size:13px;font-weight:600;color:var(--text)">📋 Site Progress — ${bk.label} (${bk.sub})</span>
+    <span style="font-size:10px;color:var(--muted)">Edit levels and notes, then Apply to update all views.</span>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="export-btn" onclick="exportAllBlocks()">⬇ Export All Blocks (.xlsx)</button>
+      <button class="import-btn" onclick="openImportModal()">⬆ Import from Excel</button>
+      <div class="toolbar-sep"></div>
+      <span class="save-ok" id="save-ok-msg">✓ Saved</span>
+      <button class="reset-btn" onclick="resetBlock()">↺ Reset block</button>
+      <button class="apply-btn" onclick="applyChanges()">✓ Apply &amp; Update All Views</button>
+    </div>
+  </div>`;
+
+  // ── table ──
+  let tbl=`<div class="data-wrap"><table class="dt">
+    <thead><tr>
+      <th class="dt-trade">Trade</th>
+      <th style="text-align:center;min-width:70px">N (max)</th>
+      <th style="text-align:center;min-width:130px">Level Done <span style="font-weight:400;opacity:.6">(editable)</span></th>
+      <th style="text-align:center;min-width:80px">Remaining</th>
+      <th style="text-align:center;min-width:90px">Progress</th>
+      <th style="text-align:left;min-width:340px;white-space:normal">Site Notes <span style="font-weight:400;opacity:.6">(editable)</span></th>
+    </tr></thead><tbody>`;
+
+  let lastGrp='';
+  TRADES.forEach(tr=>{
+    if(NA_402C.has(tr.id)&&bk.id==='402C') return;
+    if(tr.grp!==lastGrp){
+      lastGrp=tr.grp;
+      tbl+=`<tr class="dt-grp"><td colspan="6">${tr.grp}</td></tr>`;
+    }
+    const done=Math.min(CURRENT[bk.id][tr.id]||0,bk.N);
+    const remaining=bk.N-done;
+    const pct=Math.round(done/bk.N*100);
+    const note=NOTES[bk.id][tr.id]||'';
+    const isComplete=done>=bk.N;
+    const pc=pctColors(pct);
+    const rowBg=isComplete?'rgba(62,207,142,0.05)':'#fff';
+
+    tbl+=`<tr style="background:${rowBg}">
+      <td class="dt-trade-cell" style="background:${rowBg}">
+        <div style="display:flex;align-items:center;gap:7px">
+          <div style="width:3px;height:22px;border-radius:2px;background:${tr.color};flex-shrink:0"></div>
+          <span style="font-weight:600;color:${tr.color};font-size:11px">${tr.name}</span>
+          ${isComplete?'<span style="font-size:9px;background:rgba(21,128,61,.12);color:#15803d;padding:1px 5px;border-radius:4px;margin-left:2px">✓ Done</span>':''}
+        </div>
+      </td>
+      <td style="text-align:center;font-family:var(--mono);font-weight:700;color:var(--muted)">L${bk.N}</td>
+      <td style="text-align:center;padding:5px 8px">
+        <div class="lvl-spinner">
+          <button onclick="spinLevel('${bk.id}','${tr.id}',-1,${bk.N})" title="Decrease">−</button>
+          <input type="number" id="lvl_${bk.id}_${tr.id}" min="0" max="${bk.N}" value="${done}"
+            onchange="spinLevel('${bk.id}','${tr.id}',0,${bk.N},this.value)"
+            style="color:${tr.color}">
+          <button onclick="spinLevel('${bk.id}','${tr.id}',1,${bk.N})" title="Increase">+</button>
+        </div>
+      </td>
+      <td style="text-align:center;font-family:var(--mono)" id="rem_${bk.id}_${tr.id}">
+        ${remaining===0?'<span style="color:var(--muted)">—</span>':'<span style="color:var(--text)">'+remaining+' lvls</span>'}
+      </td>
+      <td style="text-align:center;padding:5px 8px" id="pct_${bk.id}_${tr.id}">
+        <div class="pct-bar">
+          <span class="pct-label" style="color:${pc.c};background:${pc.bg}">${pct}%</span>
+          <div class="pct-track"><div class="pct-fill" style="width:${pct}%;background:${tr.color}"></div></div>
+        </div>
+      </td>
+      <td style="padding:5px 8px;white-space:normal">
+        <textarea class="note-input" id="note_${bk.id}_${tr.id}" rows="2"
+          placeholder="Enter site notes…">${note}</textarea>
+      </td>
+    </tr>`;
+  });
+  tbl+=`</tbody></table></div>`;
+
+  // info bar content
+  let totalC=0,doneC=0;
+  TRADES.forEach(tr=>{
+    if(NA_402C.has(tr.id)&&bk.id==='402C') return;
+    totalC+=bk.N; doneC+=Math.min(CURRENT[bk.id][tr.id]||0,bk.N);
+  });
+  const overallPct=Math.round(doneC/totalC*100);
+
+  document.getElementById('main-wrap').innerHTML=toolbar+tbl;
+  document.getElementById('info-bar').innerHTML=`
+    <div class="info-item">Block <strong>${bk.label}</strong> (${bk.sub}) · N=<strong>L${bk.N}</strong></div>
+    <div class="info-item">Overall: <strong>${doneC}/${totalC}</strong> level-cells (<strong>${overallPct}%</strong>)</div>
+    <div class="info-item" style="color:#15803d">📋 Data: 23 Apr 2026 · Changes auto-saved to browser</div>
+  `;
+}
+
+/* spin a single level spinner in place, update pct+remaining cells live */
+function spinLevel(bkId,trId,delta,maxN,newVal){
+  const inp=document.getElementById('lvl_'+bkId+'_'+trId);
+  if(!inp) return;
+  let v=newVal!==undefined?parseInt(newVal):parseInt(inp.value)||0;
+  v=Math.max(0,Math.min(maxN,v+delta));
+  inp.value=v;
+  // live update pct + remaining cells
+  const remaining=maxN-v;
+  const pct=Math.round(v/maxN*100);
+  const tr=TRADES.find(t=>t.id===trId);
+  const pc=pctColors(pct);
+  const remEl=document.getElementById('rem_'+bkId+'_'+trId);
+  const pctEl=document.getElementById('pct_'+bkId+'_'+trId);
+  if(remEl) remEl.innerHTML=remaining===0?'<span style="color:var(--muted)">—</span>':'<span style="color:var(--text)">'+remaining+' lvls</span>';
+  if(pctEl) pctEl.innerHTML=`<div class="pct-bar">
+    <span class="pct-label" style="color:${pc.c};background:${pc.bg}">${pct}%</span>
+    <div class="pct-track"><div class="pct-fill" style="width:${pct}%;background:${tr?tr.color:'#888'}"></div></div>
+  </div>`;
+  inp.style.color=tr?tr.color:'var(--text)';
+}
+
+/* collect all form values → apply to CURRENT & NOTES → refresh all views */
+function applyChanges(){
+  const bk=BLOCKS.find(b=>b.id===activeBlock);
+  TRADES.forEach(tr=>{
+    if(NA_402C.has(tr.id)&&bk.id==='402C') return;
+    const inp=document.getElementById('lvl_'+bk.id+'_'+tr.id);
+    const noteEl=document.getElementById('note_'+bk.id+'_'+tr.id);
+    if(inp){
+      const v=Math.max(0,Math.min(bk.N,parseInt(inp.value)||0));
+      CURRENT[bk.id][tr.id]=v;
+    }
+    if(noteEl){
+      NOTES[bk.id][tr.id]=noteEl.value.trim();
+    }
+  });
+  saveToLS();
+  // flash save confirmation
+  const ok=document.getElementById('save-ok-msg');
+  if(ok){ok.style.opacity='1';setTimeout(()=>ok.style.opacity='0',2000);}
+  // update progress pill
+  const cur=CURRENT[bk.id];
+  let totalC=0,doneC=0;
+  TRADES.forEach(tr=>{
+    if(NA_402C.has(tr.id)&&bk.id==='402C') return;
+    totalC+=bk.N; doneC+=Math.min(cur[tr.id]||0,bk.N);
+  });
+  const pct=Math.round(doneC/totalC*100);
+  document.getElementById('progress-pill').textContent=`${bk.label}: ${pct}% done`;
+  // re-render data view to reflect new values
+  renderData();
+}
+
+/* reset this block's data to the original seeded values */
+const ORIGINAL_CURRENT = JSON.parse(JSON.stringify({
+  '402A':{conc:17,pc1:17,pc2:16,mep:16,plaster:16,skim:15,win:16,wp:16,wt:16,ft:13,wtp:15,ftp:11,tbx:12,dw:10,bc:10,fc:0,scr:9},
+  '402B':{conc:15,pc1:12,pc2:10,mep:10,plaster:10,skim:9,win:10,wp:10,wt:8,ft:8,wtp:7,ftp:7,tbx:2,dw:2,bc:2,fc:0,scr:2},
+  '404A':{conc:16,pc1:13,pc2:10,mep:11,plaster:9,skim:9,win:10,wp:7,wt:6,ft:3,wtp:4,ftp:2,tbx:0,dw:4,bc:0,fc:0,scr:0},
+  '404B':{conc:12,pc1:11,pc2:8,mep:9,plaster:8,skim:7,win:8,wp:6,wt:3,ft:0,wtp:0,ftp:0,tbx:0,dw:4,bc:0,fc:0,scr:0},
+  '406A':{conc:14,pc1:11,pc2:10,mep:9,plaster:9,skim:7,win:8,wp:6,wt:4,ft:2,wtp:0,ftp:0,tbx:0,dw:3,bc:0,fc:0,scr:0},
+  '406B':{conc:15,pc1:12,pc2:10,mep:10,plaster:8,skim:7,win:9,wp:5,wt:3,ft:0,wtp:0,ftp:0,tbx:0,dw:3,bc:0,fc:0,scr:0},
+  '402C':{conc:0,pc1:0,pc2:0,mep:0,plaster:0,skim:0,win:0,wp:0,wt:0,ft:0,wtp:0,ftp:0,tbx:0,dw:0,bc:0,fc:0,scr:0},
+}));
+
+function resetBlock(){
+  if(!confirm('Reset all progress for block '+activeBlock+' to original values?')) return;
+  const bk=BLOCKS.find(b=>b.id===activeBlock);
+  Object.assign(CURRENT[bk.id],ORIGINAL_CURRENT[bk.id]);
+  Object.keys(NOTES[bk.id]).forEach(k=>{ if(ORIGINAL_NOTES[bk.id]) NOTES[bk.id][k]=ORIGINAL_NOTES[bk.id][k]||''; });
+  saveToLS();
+  renderData();
+}
+
+function renderCurrent(){
+  if(activeView==='matrix') renderMatrix();
+  else if(activeView==='flow') renderFlow();
+  else renderData();
+}
+
+/* ═══════════ SHARED WEEK COLS ═══════════ */
+function getWeeks(){
+  const nWeeks=parseInt(document.getElementById('ctrl-weeks').value)||60;
+  const nPast =parseInt(document.getElementById('ctrl-past').value)||8;
+  const todayWk=sowk(TODAY);
+  const startWk=add(todayWk,-nPast*7);
+  const weeks=[];
+  for(let w=0;w<nWeeks;w++) weeks.push(add(startWk,w*7));
+  return {weeks,todayWk};
+}
+
+function buildMonthWkHeaders(weeks,todayWk,cornerHtml){
+  const monthSpans=[];
+  let mKey='';
+  weeks.forEach(wk=>{
+    const mk=wk.toLocaleDateString('en-SG',{month:'long',year:'numeric'});
+    if(mk!==mKey){monthSpans.push({label:wk.toLocaleDateString('en-SG',{month:'short',year:'2-digit'}),count:1});mKey=mk;}
+    else monthSpans[monthSpans.length-1].count++;
+  });
+  let moHtml=cornerHtml;
+  monthSpans.forEach(ms=>{moHtml+=`<th class="wh mo-h" colspan="${ms.count}" style="border-right:1px solid var(--border2)">${ms.label}</th>`;});
+  let wkHtml='';
+  weeks.forEach(wk=>{
+    const isT=wk.getTime()===todayWk.getTime();
+    const isPast=wk<todayWk;
+    const cls=isT?'today-h':isPast?'past-h':'';
+    const day=wk.toLocaleDateString('en-SG',{day:'2-digit'});
+    wkHtml+=`<th class="wh wk-h ${cls}" title="${fmtS(wk)}–${fmtS(add(wk,6))}">${isT?'▼':day}</th>`;
+  });
+  return {moHtml,wkHtml};
+}
+
+/* ═══════════════════════════════════════════════
+   MATRIX VIEW  —  Y: trades   X: time   cell: level
+═══════════════════════════════════════════════ */
+function renderMatrix(){
+  const endDate=new Date(document.getElementById('ctrl-end').value);
+  const takt=parseInt(document.getElementById('ctrl-takt').value)||7;
+  const lead=parseInt(document.getElementById('ctrl-lead').value)||3;
+  const {weeks,todayWk}=getWeeks();
+
+  const bk=BLOCKS.find(b=>b.id===activeBlock);
+  const cur=CURRENT[bk.id]||{};
+  const scheds=buildSchedule(endDate,bk.N,takt);
+
+  let totalCells=0,doneCells=0;
+  TRADES.forEach(tr=>{
+    if(NA_402C.has(tr.id)&&bk.id==='402C') return;
+    totalCells+=bk.N; doneCells+=Math.min(cur[tr.id]||0,bk.N);
+  });
+  const pct=Math.round(doneCells/totalCells*100);
+  document.getElementById('progress-pill').textContent=`${bk.label}: ${pct}% done`;
+
+  const cornerHtml=`<th class="tc" rowspan="2" style="text-align:left;padding:0;background:#f0f2f8;border-right:2px solid var(--border2);border-bottom:2px solid var(--border2)">
+    <div style="display:flex;align-items:center;gap:7px;padding:8px 10px">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text)">${bk.label} (${bk.sub})</div>
+        <div style="font-size:9px;color:var(--muted);font-family:var(--mono)">N=L${bk.N} · Takt ${takt}d · Lead N-${lead}</div>
+      </div>
+    </div>
+  </th>`;
+  const {moHtml,wkHtml}=buildMonthWkHeaders(weeks,todayWk,cornerHtml);
+
+  let body='';
+  let lastGrp='';
+  TRADES.forEach((tr,ti)=>{
+    if(tr.grp!==lastGrp){
+      lastGrp=tr.grp;
+      body+=`<tr class="grp-row"><td class="tc">${tr.grp}</td>${weeks.map(()=>'<td style="background:#eef1f8;border-bottom:1px solid var(--border2);border-top:1px solid var(--border2)"></td>').join('')}</tr>`;
+    }
+    body+=`<tr>`;
+    body+=`<td class="tc" style="border-right:2px solid var(--border2);border-bottom:1px solid var(--border);padding:0;background:#fff;min-width:150px;max-width:150px">
+      <div style="display:flex;align-items:center;gap:7px;padding:6px 10px">
+        <div style="width:4px;height:28px;border-radius:2px;flex-shrink:0;background:${tr.color}"></div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:${tr.color}">${tr.name}</div>
+          <div style="font-size:9px;color:var(--faint);font-family:var(--mono)">${tr.days}d/lvl</div>
+        </div>
+      </div>
+    </td>`;
+    const isNA=NA_402C.has(tr.id)&&bk.id==='402C';
+    const doneLvl=Math.min(cur[tr.id]||0,bk.N);
+    const isComplete=doneLvl>=bk.N;
+    weeks.forEach(wk=>{
+      const isT=wk.getTime()===todayWk.getTime();
+      const isPast=wk<todayWk;
+      if(isNA){
+        body+=`<td class="dc${isT?' today-col':''}"><div class="cell" style="background:#f4f6fb"><span style="font-size:9px;color:#d1d5db">N/A</span></div></td>`;
+        return;
+      }
+      const lvl=levelInWeek(scheds,ti,wk,bk.N);
+      const st=lvl?cellStatus(ti,lvl,bk.id,wk):(isPast?'past-empty':'empty');
+      let cs='',lv='',sub='';
+      const c=tr.color,cl=tr.light;
+      if(st==='done'||st==='comp'){cs=`background:${c};color:#fff;`;lv=lvl?'L'+lvl:'✓';if(isComplete&&!lvl){lv='✓';sub='Done';}}
+      else if(st==='act'){cs=`background:${c};color:#fff;box-shadow:0 0 0 2px ${c},0 2px 6px ${hexA(c,.5)};`;lv='L'+lvl;}
+      else if(st==='soon'){cs=`background:${hexA(c,.8)};color:#fff;`;lv='L'+lvl;}
+      else if(st==='fut'){cs=`background:#fff;color:${c};font-weight:800;border-left:3px solid ${c};`;lv='L'+lvl;}
+      else if(st==='over'){cs=`background:#dc2626;color:#fff;`;lv=lvl?'L'+lvl:'!';}
+      else{cs=isPast?'background:#f0f2f8;':'background:#fafbfd;';lv='';}
+      const cobj=scheds[ti][lvl]||{};
+      const noteStr=((NOTES[bk.id]||{})[tr.id]||'').replace(/\|/g,'/');
+      body+=`<td class="dc${isT?' today-col':''}">
+        <div class="cell" style="${cs}"
+          data-tt="${tr.name}|${lvl?'L'+lvl+' of L'+bk.N:'No work'}|${bk.label}|${lvl&&cobj.start?fmtS(cobj.start)+'–'+fmtS(cobj.end):''}|${st.toUpperCase()}|${tr.color}|${noteStr}">
+          <span class="lv">${lv}</span>${sub?`<span class="pct">${sub}</span>`:''}
+          ${isT&&lvl?'<div class="now-badge">NOW</div>':''}
+        </div>
+      </td>`;
+    });
+    body+=`</tr>`;
+  });
+
+  document.getElementById('main-wrap').innerHTML=
+    `<table class="mx"><thead><tr>${moHtml}</tr><tr>${wkHtml}</tr></thead><tbody>${body}</tbody></table>`;
+  updateInfoBar(bk,endDate,takt,lead,doneCells,totalCells,pct);
+}
+
+/* ═══════════════════════════════════════════════
+   FLOW VIEW  —  Y: levels (17→1)   X: time   cell: active trade(s)
+   Each cell shows which trade is working at that level that week.
+   Fully done levels are grayed out. Future levels show scheduled trades.
+═══════════════════════════════════════════════ */
+function renderFlow(){
+  const endDate=new Date(document.getElementById('ctrl-end').value);
+  const takt=parseInt(document.getElementById('ctrl-takt').value)||7;
+  const lead=parseInt(document.getElementById('ctrl-lead').value)||3;
+  const {weeks,todayWk}=getWeeks();
+
+  const bk=BLOCKS.find(b=>b.id===activeBlock);
+  const cur=CURRENT[bk.id]||{};
+  const scheds=buildSchedule(endDate,bk.N,takt);
+
+  let totalCells=0,doneCells=0;
+  TRADES.forEach(tr=>{
+    if(NA_402C.has(tr.id)&&bk.id==='402C') return;
+    totalCells+=bk.N; doneCells+=Math.min(cur[tr.id]||0,bk.N);
+  });
+  const pct=Math.round(doneCells/totalCells*100);
+  document.getElementById('progress-pill').textContent=`${bk.label}: ${pct}% done`;
+
+  /* count applicable trades per level for "done" check */
+  function tradesDoneAtLevel(lvl){
+    return TRADES.filter(tr=>{
+      if(NA_402C.has(tr.id)&&bk.id==='402C') return false;
+      return (cur[tr.id]||0)>=lvl;
+    }).length;
+  }
+  function totalTradesAtLevel(){
+    return TRADES.filter(tr=>!(NA_402C.has(tr.id)&&bk.id==='402C')).length;
+  }
+  const totalTrades=totalTradesAtLevel();
+
+  const cornerHtml=`<th class="tc" rowspan="2" style="text-align:center;padding:0;background:#f0f2f8;border-right:2px solid var(--border2);border-bottom:2px solid var(--border2);min-width:90px;max-width:90px">
+    <div style="padding:6px 4px;display:flex;flex-direction:column;align-items:center;gap:2px">
+      <div style="font-size:12px;font-weight:700;color:var(--text)">${bk.label}</div>
+      <div style="font-size:9px;color:var(--muted);font-family:var(--mono)">N=L${bk.N}</div>
+      <div style="font-size:9px;color:var(--muted)">Level ↓ · Time →</div>
+    </div>
+  </th>`;
+  const {moHtml,wkHtml}=buildMonthWkHeaders(weeks,todayWk,cornerHtml);
+
+  let body='';
+  /* Rows: level 17 down to 1 */
+  for(let lvl=2;lvl<=bk.N;lvl++){
+    const doneAtLvl=tradesDoneAtLevel(lvl);
+    const allDone=doneAtLvl>=totalTrades;
+    const lvlBg=allDone?'#f0f2f8':'#ffffff';
+    const lvlNumStyle=allDone?'color:var(--muted)':'color:var(--text)';
+
+    body+=`<tr>`;
+    /* sticky level label */
+    body+=`<td class="tc" style="background:${lvlBg};border-right:2px solid var(--border2);border-bottom:1px solid var(--border);min-width:90px;max-width:90px;padding:0">
+      <div class="lvl-label ${allDone?'lvl-done':''}">
+        <div class="lvl-num" style="${lvlNumStyle}">L${lvl}</div>
+        <div class="lvl-sub">${allDone?'✓ Done':`${doneAtLvl}/${totalTrades} trades`}</div>
+      </div>
+    </td>`;
+
+    weeks.forEach(wk=>{
+      const isT=wk.getTime()===todayWk.getTime();
+      const wEnd=add(wk,6);
+      const isPast=wk<todayWk;
+
+      /* find which trades are active at this level this week */
+      const activeTrades=[];
+      TRADES.forEach((tr,ti)=>{
+        if(NA_402C.has(tr.id)&&bk.id==='402C') return;
+        const c=scheds[ti][lvl];
+        if(c&&wk<=c.end&&wEnd>=c.start) activeTrades.push({tr,ti,c});
+      });
+
+      let cellHtml='';
+      if(allDone){
+        /* level fully complete */
+        cellHtml=`<div class="fcell" style="background:#eef1f8;">
+          <span class="tn" style="font-size:10px;color:var(--muted)">✓</span>
+        </div>`;
+      } else if(activeTrades.length===0){
+        /* nothing scheduled here */
+        cellHtml=`<div class="fcell" style="background:${isPast?'#f0f2f8':'#fafbfd'};">
+          <span style="font-size:10px;color:#d1d5db">·</span>
+        </div>`;
+      } else {
+        /* one or more trades active — stack them (usually 1, but takt overlap possible) */
+        const tr=activeTrades[0].tr;
+        const ti=activeTrades[0].ti;
+        const c=activeTrades[0].c;
+        const doneLvl=cur[tr.id]||0;
+        const isThisActive=lvl===doneLvl+1;
+        const isDone=lvl<=doneLvl;
+        const isOver=!isDone&&wEnd<TODAY;
+
+        let bg,textCol,border='';
+        if(isDone){bg=tr.color;textCol='#fff';}
+        else if(isOver){bg='#dc2626';textCol='#fff';}
+        else if(isThisActive&&isT){bg=tr.color;textCol='#fff';border=`box-shadow:0 0 0 2px ${tr.color};`;}
+        else if(isThisActive){bg=hexA(tr.color,.8);textCol='#fff';}
+        else{/* future */bg=tr.light;textCol=tr.color;border=`border-left:3px solid ${tr.color};`;}
+
+        const extra=activeTrades.length>1?`+${activeTrades.length-1}`:'';
+        const dateStr=fmtS(c.start)+'–'+fmtS(c.end);
+        const allNames=activeTrades.map(a=>a.tr.name).join(', ');
+
+        const fnote=((NOTES[bk.id]||{})[tr.id]||'').replace(/\|/g,'/');
+        cellHtml=`<div class="fcell" style="background:${bg};${border}"
+          data-tt="${allNames}|L${lvl} · ${bk.label}|${bk.label}|${dateStr}|${isDone?'DONE':isOver?'OVERDUE':isThisActive?'ACTIVE':'SCHEDULED'}|${tr.color}|${fnote}">
+          <span class="tn" style="color:${textCol};font-size:${activeTrades.length>1?8:9}px">${tr.short}${extra?'<br><span style=\'font-size:7px\'>'+extra+'</span>':''}</span>
+          ${isT&&!isDone?'<div class="now-badge">NOW</div>':''}
+        </div>`;
+      }
+
+      body+=`<td class="dc${isT?' today-col':''}" style="padding:2px">${cellHtml}</td>`;
+    });
+    body+=`</tr>`;
+  }
+
+  document.getElementById('main-wrap').innerHTML=
+    `<table class="fl"><thead><tr>${moHtml}</tr><tr>${wkHtml}</tr></thead><tbody>${body}</tbody></table>`;
+  updateInfoBar(bk,endDate,takt,lead,doneCells,totalCells,pct);
+}
+
+/* ═══════════ INFO BAR ═══════════ */
+function updateInfoBar(bk,endDate,takt,lead,done,total,pct){
+  const daysLeft=diff(TODAY,endDate);
+  document.getElementById('info-bar').innerHTML=`
+    <div class="info-item">Block <strong>${bk.label}</strong> (${bk.sub}) · N=<strong>L${bk.N}</strong></div>
+    <div class="info-item">Completion: <strong>${fmt(endDate)}</strong> · <strong>${daysLeft}</strong> days / <strong>${Math.ceil(daysLeft/7)}</strong> weeks</div>
+    <div class="info-item">Takt <strong>${takt}d/level</strong> · Lead <strong>N-${lead}</strong></div>
+    <div class="info-item">Progress: <strong>${done}/${total}</strong> level-cells (<strong>${pct}%</strong>)</div>
+    <div class="info-item" style="color:#f59e0b">▼ = current week</div>
+  `;
+}
+
+/* ═══════════ TOOLTIP via delegation ═══════════ */
+const tipEl=document.getElementById('tip');
+document.addEventListener('mousemove',e=>{
+  const el=e.target.closest('[data-tt]');
+  if(el){
+    const parts=el.dataset.tt.split('|');
+    const [trade,level,block,dates,status,color]=parts;
+    const siteNote = parts[6] || '';
+    tipEl.innerHTML=
+      `<div class="tip-hd" style="color:${color}">${trade}</div>`+
+      `${level} · ${block}`+
+      (dates?`<br>${dates}`:'')+
+      `<br><span class="tip-st">${status}</span>`+
+      (siteNote?`<br><span style="font-size:10px;opacity:0.75;font-style:italic">${siteNote}</span>`:'');
+    tipEl.style.display='block';
+    let x=e.clientX+14,y=e.clientY+14;
+    if(x+270>window.innerWidth) x=e.clientX-280;
+    if(y+120>window.innerHeight) y=e.clientY-130;
+    tipEl.style.left=x+'px'; tipEl.style.top=y+'px';
+  } else {
+    tipEl.style.display='none';
+  }
+});
+
+/* ═══════════ EXCEL EXPORT ═══════════ */
+function exportAllBlocks(){
+  if(typeof XLSX==='undefined'){alert('SheetJS not loaded yet. Please wait and try again.');return;}
+
+  const wb = XLSX.utils.book_new();
+
+  // ── Sheet 1: Progress Summary (all blocks) ──
+  const summaryRows=[['Block','Trade','Group','Max Level (N)','Level Done','Remaining','Progress %','Site Notes','Last Updated']];
+  const exportDate=new Date().toLocaleDateString('en-SG',{day:'2-digit',month:'short',year:'numeric'});
+  BLOCKS.forEach(bk=>{
+    let lastGrp='';
+    TRADES.forEach(tr=>{
+      if(NA_402C.has(tr.id)&&bk.id==='402C') return;
+      const done=Math.min(CURRENT[bk.id][tr.id]||0,bk.N);
+      const rem=bk.N-done;
+      const pct=Math.round(done/bk.N*100);
+      const note=NOTES[bk.id][tr.id]||'';
+      summaryRows.push([bk.label+' ('+bk.sub+')',tr.name,tr.grp,bk.N,done,rem,pct+'%',note,exportDate]);
+    });
+    summaryRows.push(['','','','','','','','','']); // blank spacer row between blocks
+  });
+  const wsSummary=XLSX.utils.aoa_to_sheet(summaryRows);
+  // column widths
+  wsSummary['!cols']=[{wch:14},{wch:22},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:50},{wch:14}];
+  // freeze header row
+  wsSummary['!freeze']={xSplit:0,ySplit:1};
+  XLSX.utils.book_append_sheet(wb,wsSummary,'Progress Summary');
+
+  // ── Sheet 2+: One sheet per block ──
+  BLOCKS.forEach(bk=>{
+    const rows=[
+      ['Takt Plan Progress — Block: '+bk.label+' ('+bk.sub+')',null,null,null,null,null,null,null],
+      ['Exported: '+exportDate,null,null,null,null,null,null,null],
+      [],
+      ['Trade','Group','Max Level (N)','Level Done','Remaining Levels','Progress %','Complete?','Site Notes']
+    ];
+    let lastGrp='';
+    TRADES.forEach(tr=>{
+      if(NA_402C.has(tr.id)&&bk.id==='402C') return;
+      const done=Math.min(CURRENT[bk.id][tr.id]||0,bk.N);
+      const rem=bk.N-done;
+      const pct=Math.round(done/bk.N*100);
+      const note=NOTES[bk.id][tr.id]||'';
+      const isComplete=done>=bk.N;
+      rows.push([tr.name,tr.grp,bk.N,done,rem,pct+'%',isComplete?'Yes':'No',note]);
+    });
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:22},{wch:12},{wch:13},{wch:13},{wch:16},{wch:13},{wch:10},{wch:55}];
+    ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:7}},{s:{r:1,c:0},e:{r:1,c:7}}];
+    XLSX.utils.book_append_sheet(wb,ws,'Block '+bk.id);
+  });
+
+  // ── Sheet: Import Template ──
+  const tplRows=[
+    ['# TAKT PLAN IMPORT TEMPLATE','','','','','',''],
+    ['# Fill in "Level Done" and "Site Notes" columns, then import this file.','','','','','',''],
+    ['# Block column must match exactly: 402A, 402B, 404A, 404B, 406A, 406B, 402C','','','','','',''],
+    ['# Trade ID must match exactly (see column B). Level Done must be a number 0 to N.','','','','','',''],
+    [],
+    ['Block','Trade ID','Trade Name','Max Level (N)','Level Done','Site Notes'],
+  ];
+  BLOCKS.forEach(bk=>{
+    TRADES.forEach(tr=>{
+      if(NA_402C.has(tr.id)&&bk.id==='402C') return;
+      const done=Math.min(CURRENT[bk.id][tr.id]||0,bk.N);
+      const note=NOTES[bk.id][tr.id]||'';
+      tplRows.push([bk.id,tr.id,tr.name,bk.N,done,note]);
+    });
+  });
+  const wsTpl=XLSX.utils.aoa_to_sheet(tplRows);
+  wsTpl['!cols']=[{wch:8},{wch:12},{wch:22},{wch:13},{wch:13},{wch:55}];
+  XLSX.utils.book_append_sheet(wb,wsTpl,'Import Template');
+
+  const today=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb,`Takt_Progress_${today}.xlsx`);
+}
+
+/* ═══════════ EXCEL IMPORT ═══════════ */
+let importData=null; // parsed rows staged for confirmation
+
+function openImportModal(){
+  // make sure any existing modal is removed
+  const existing=document.getElementById('import-modal');
+  if(existing) existing.remove();
+  importData=null;
+
+  const modal=document.createElement('div');
+  modal.className='modal-overlay';
+  modal.id='import-modal';
+  modal.innerHTML=`
+    <div class="modal-box">
+      <div class="modal-title">⬆ Import from Excel</div>
+      <div class="modal-sub">
+        Upload the <strong>Import Template</strong> sheet exported from this app.<br>
+        Required columns: <code>Block</code>, <code>Trade ID</code>, <code>Level Done</code>, <code>Site Notes</code>.<br>
+        Only rows with matching Block + Trade ID will be updated. Others are ignored.
+      </div>
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="handleFileDrop(event)">
+        <input type="file" id="file-input" accept=".xlsx,.xls,.csv" onchange="handleFileSelect(event)">
+        <div class="drop-icon">📂</div>
+        <div class="drop-label">Click or drag &amp; drop your Excel file here</div>
+        <div class="drop-hint">.xlsx or .xls</div>
+      </div>
+      <div id="import-preview" class="import-preview" style="display:none"></div>
+      <div id="import-status" class="import-status"></div>
+      <div class="modal-btns">
+        <button class="modal-cancel" onclick="closeImportModal()">Cancel</button>
+        <button class="modal-confirm" id="confirm-import-btn" onclick="confirmImport()" disabled style="opacity:.4;cursor:not-allowed">Apply Import</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function closeImportModal(){
+  const m=document.getElementById('import-modal');
+  if(m) m.remove();
+  importData=null;
+}
+
+function handleFileDrop(e){
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-over');
+  const file=e.dataTransfer.files[0];
+  if(file) parseImportFile(file);
+}
+function handleFileSelect(e){
+  const file=e.target.files[0];
+  if(file) parseImportFile(file);
+}
+
+function parseImportFile(file){
+  const status=document.getElementById('import-status');
+  status.className='import-status';
+  status.style.display='none';
+
+  if(typeof XLSX==='undefined'){
+    status.className='import-status import-err';
+    status.textContent='SheetJS not loaded. Please refresh and try again.';
+    return;
+  }
+
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+
+      // Try "Import Template" sheet first, then first sheet
+      let wsName=wb.SheetNames.find(n=>n==='Import Template')||wb.SheetNames[0];
+      const ws=wb.Sheets[wsName];
+      const raw=XLSX.utils.sheet_to_json(ws,{defval:'',raw:true});
+
+      // Find valid data rows — skip comment rows (start with #) and blank rows
+      const rows=raw.filter(r=>{
+        const block=String(r['Block']||'').trim();
+        return block && !block.startsWith('#') && BLOCKS.find(b=>b.id===block);
+      });
+
+      if(rows.length===0){
+        status.className='import-status import-err';
+        status.textContent='No valid rows found. Make sure "Block" column has valid block IDs (402A, 402B, etc.) and you exported the Import Template sheet.';
+        status.style.display='block';
+        return;
+      }
+
+      importData=rows;
+
+      // Build preview table (first 20 rows)
+      const preview=document.getElementById('import-preview');
+      let ptbl='<table><thead><tr><th>Block</th><th>Trade ID</th><th>Trade Name</th><th>Level Done</th><th>Site Notes</th></tr></thead><tbody>';
+      rows.slice(0,20).forEach(r=>{
+        const bkId=String(r['Block']||'').trim();
+        const trId=String(r['Trade ID']||'').trim();
+        const lvl=parseInt(r['Level Done'])||0;
+        const note=String(r['Site Notes']||'');
+        const bk=BLOCKS.find(b=>b.id===bkId);
+        const tr=TRADES.find(t=>t.id===trId);
+        const valid=bk&&tr;
+        ptbl+=`<tr style="${valid?'':'background:#fef2f2;'}">
+          <td>${bkId}</td><td>${trId}</td>
+          <td>${tr?tr.name:'<span style="color:#dc2626">Not found</span>'}</td>
+          <td style="font-weight:700;color:${valid?'#1e40af':'#dc2626'}">${lvl}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${note.slice(0,60)}</td>
+        </tr>`;
+      });
+      if(rows.length>20) ptbl+=`<tr><td colspan="5" style="text-align:center;color:var(--muted);font-style:italic">…and ${rows.length-20} more rows</td></tr>`;
+      ptbl+='</tbody></table>';
+      preview.innerHTML=ptbl;
+      preview.style.display='block';
+
+      const validCount=rows.filter(r=>{
+        const bk=BLOCKS.find(b=>b.id===String(r['Block']||'').trim());
+        const tr=TRADES.find(t=>t.id===String(r['Trade ID']||'').trim());
+        return bk&&tr;
+      }).length;
+
+      status.className='import-status import-ok';
+      status.textContent=`✓ Found ${validCount} valid rows across ${new Set(rows.map(r=>r['Block'])).size} blocks. Review the preview and click Apply Import.`;
+      status.style.display='block';
+
+      const btn=document.getElementById('confirm-import-btn');
+      if(validCount>0){btn.disabled=false;btn.style.opacity='1';btn.style.cursor='pointer';}
+    } catch(err){
+      const status=document.getElementById('import-status');
+      status.className='import-status import-err';
+      status.textContent='Error reading file: '+err.message;
+      status.style.display='block';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function confirmImport(){
+  if(!importData||importData.length===0) return;
+  let updated=0, skipped=0;
+  importData.forEach(r=>{
+    const bkId=String(r['Block']||'').trim();
+    const trId=String(r['Trade ID']||'').trim();
+    const bk=BLOCKS.find(b=>b.id===bkId);
+    const tr=TRADES.find(t=>t.id===trId);
+    if(!bk||!tr) {skipped++;return;}
+    const rawLvl=r['Level Done'];
+    if(rawLvl!==''&&rawLvl!==null&&rawLvl!==undefined){
+      const lvl=Math.max(0,Math.min(bk.N,parseInt(rawLvl)||0));
+      CURRENT[bkId][trId]=lvl;
+    }
+    const note=String(r['Site Notes']||'').trim();
+    NOTES[bkId][trId]=note;
+    updated++;
+  });
+  saveToLS();
+  closeImportModal();
+
+  // show success toast
+  const bk=BLOCKS.find(b=>b.id===activeBlock);
+  let totalC=0,doneC=0;
+  TRADES.forEach(tr=>{
+    if(NA_402C.has(tr.id)&&bk.id==='402C') return;
+    totalC+=bk.N; doneC+=Math.min(CURRENT[bk.id][tr.id]||0,bk.N);
+  });
+  const pct=Math.round(doneC/totalC*100);
+  document.getElementById('progress-pill').textContent=`${bk.label}: ${pct}% done`;
+
+  // switch to data view to show updated values
+  switchView('data');
+
+  // brief toast
+  const toast=document.createElement('div');
+  toast.style.cssText='position:fixed;bottom:24px;right:24px;background:#15803d;color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;z-index:2000;box-shadow:0 4px 16px rgba(0,0,0,.2)';
+  toast.textContent=`✓ Imported ${updated} rows (${skipped} skipped). All views updated.`;
+  document.body.appendChild(toast);
+  setTimeout(()=>toast.remove(),3500);
+}
+
+/* ═══════════ INIT ═══════════ */
+// Deep copy of original notes for reset function
+const ORIGINAL_NOTES = JSON.parse(JSON.stringify(NOTES));
+
+// Load any saved user edits from localStorage
+loadFromLS();
+
+document.getElementById('today-pill').textContent=
+  TODAY.toLocaleDateString('en-SG',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+document.getElementById('data-source-pill').textContent='📋 Data: 23 Apr 2026';
+buildBlockTabs();
+buildTradeLegend();
+renderMatrix();
+</script>
+</body>
+</html>

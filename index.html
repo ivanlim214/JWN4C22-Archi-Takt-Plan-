@@ -172,8 +172,94 @@ table.dt tr.dt-grp td{background:#eef1f8;padding:4px 12px;font-size:9px;font-wei
 .import-ok{background:rgba(21,128,61,.1);color:#15803d;border:1px solid rgba(21,128,61,.3);display:block}
 .import-err{background:rgba(220,38,38,.1);color:#dc2626;border:1px solid rgba(220,38,38,.3);display:block}
 
+/* ── INLINE EDIT DRAWER ── */
+#edit-drawer{
+  position:fixed;right:0;top:50px;bottom:0;width:320px;
+  background:#fff;border-left:1px solid var(--border2);
+  box-shadow:-4px 0 24px rgba(0,0,0,.10);
+  z-index:500;display:none;flex-direction:column;
+  font-family:var(--font);transform:translateX(100%);transition:transform .22s ease;
+}
+#edit-drawer.open{display:flex;transform:translateX(0)}
+.drawer-header{padding:16px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px}
+.drawer-swatch{width:5px;border-radius:3px;flex-shrink:0;align-self:stretch;min-height:40px}
+.drawer-title{font-size:13px;font-weight:700;color:var(--text);line-height:1.3}
+.drawer-sub{font-size:10px;color:var(--muted);margin-top:2px;font-family:var(--mono)}
+.drawer-close{margin-left:auto;background:none;border:none;font-size:18px;cursor:pointer;color:var(--faint);line-height:1;padding:0 0 0 8px;flex-shrink:0}
+.drawer-close:hover{color:var(--text)}
+.drawer-body{padding:16px 18px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.drawer-field{display:flex;flex-direction:column;gap:5px}
+.drawer-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+.drawer-spinner{display:flex;align-items:center;gap:0;border:1px solid var(--border2);border-radius:8px;overflow:hidden;background:#fff;width:fit-content}
+.drawer-spinner button{width:34px;height:36px;border:none;background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer;font-weight:700;display:flex;align-items:center;justify-content:center;transition:background .12s;flex-shrink:0}
+.drawer-spinner button:hover{background:#c8cfe8}
+.drawer-spinner input[type=number]{width:60px;height:36px;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);text-align:center;font-family:var(--mono);font-size:14px;font-weight:700;color:var(--text);background:#fff;outline:none;-moz-appearance:textfield}
+.drawer-spinner input[type=number]::-webkit-inner-spin-button{display:none}
+.drawer-progress{height:6px;background:#e2e6f0;border-radius:3px;overflow:hidden;margin-top:4px}
+.drawer-progress-fill{height:6px;border-radius:3px;transition:width .3s}
+.drawer-pct{font-family:var(--mono);font-size:11px;font-weight:700;margin-top:2px}
+.drawer-textarea{width:100%;font-family:var(--font);font-size:11px;color:var(--text);border:1px solid var(--border2);border-radius:7px;padding:8px 10px;background:#fff;outline:none;resize:vertical;line-height:1.5;min-height:80px;transition:border .15s}
+.drawer-textarea:focus{border-color:var(--accent)}
+.drawer-schedule{background:var(--surface2);border-radius:7px;padding:10px 12px;font-size:10px;color:var(--muted);line-height:1.8;border:1px solid var(--border)}
+.drawer-schedule strong{color:var(--text);font-weight:600}
+.drawer-footer{padding:14px 18px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.drawer-save{font-family:var(--font);font-size:12px;font-weight:700;padding:9px;width:100%;cursor:pointer;border-radius:8px;border:none;background:var(--accent);color:#fff;letter-spacing:.3px;transition:background .15s}
+.drawer-save:hover{background:#1e3a8a}
+.drawer-saved{font-size:10px;color:#15803d;text-align:center;opacity:0;transition:opacity .3s;font-weight:600}
+.drawer-cancel{font-family:var(--font);font-size:11px;padding:6px;width:100%;cursor:pointer;border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--muted)}
+.drawer-cancel:hover{border-color:#dc2626;color:#dc2626}
+.edit-hint{font-size:9px;color:var(--muted);padding:6px 18px 0;text-align:center;display:none}
+.edit-hint.show{display:block}
+/* clickable cells get a subtle hover cursor */
+.cell[data-editable], .fcell[data-editable]{cursor:pointer}
+.cell[data-editable]:hover{outline:2px solid var(--accent);outline-offset:-2px;filter:brightness(.92)}
+.fcell[data-editable]:hover{outline:2px solid var(--accent);outline-offset:-2px;filter:brightness(.92)}
+
 /* ── TOOLTIP ── */
-#tip{/* ── TOOLTIP ── */
+#tip{/* ── INLINE EDIT DRAWER ── */
+#edit-drawer{
+  position:fixed;right:0;top:50px;bottom:0;width:320px;
+  background:#fff;border-left:1px solid var(--border2);
+  box-shadow:-4px 0 24px rgba(0,0,0,.10);
+  z-index:500;display:none;flex-direction:column;
+  font-family:var(--font);transform:translateX(100%);transition:transform .22s ease;
+}
+#edit-drawer.open{display:flex;transform:translateX(0)}
+.drawer-header{padding:16px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px}
+.drawer-swatch{width:5px;border-radius:3px;flex-shrink:0;align-self:stretch;min-height:40px}
+.drawer-title{font-size:13px;font-weight:700;color:var(--text);line-height:1.3}
+.drawer-sub{font-size:10px;color:var(--muted);margin-top:2px;font-family:var(--mono)}
+.drawer-close{margin-left:auto;background:none;border:none;font-size:18px;cursor:pointer;color:var(--faint);line-height:1;padding:0 0 0 8px;flex-shrink:0}
+.drawer-close:hover{color:var(--text)}
+.drawer-body{padding:16px 18px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.drawer-field{display:flex;flex-direction:column;gap:5px}
+.drawer-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+.drawer-spinner{display:flex;align-items:center;gap:0;border:1px solid var(--border2);border-radius:8px;overflow:hidden;background:#fff;width:fit-content}
+.drawer-spinner button{width:34px;height:36px;border:none;background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer;font-weight:700;display:flex;align-items:center;justify-content:center;transition:background .12s;flex-shrink:0}
+.drawer-spinner button:hover{background:#c8cfe8}
+.drawer-spinner input[type=number]{width:60px;height:36px;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);text-align:center;font-family:var(--mono);font-size:14px;font-weight:700;color:var(--text);background:#fff;outline:none;-moz-appearance:textfield}
+.drawer-spinner input[type=number]::-webkit-inner-spin-button{display:none}
+.drawer-progress{height:6px;background:#e2e6f0;border-radius:3px;overflow:hidden;margin-top:4px}
+.drawer-progress-fill{height:6px;border-radius:3px;transition:width .3s}
+.drawer-pct{font-family:var(--mono);font-size:11px;font-weight:700;margin-top:2px}
+.drawer-textarea{width:100%;font-family:var(--font);font-size:11px;color:var(--text);border:1px solid var(--border2);border-radius:7px;padding:8px 10px;background:#fff;outline:none;resize:vertical;line-height:1.5;min-height:80px;transition:border .15s}
+.drawer-textarea:focus{border-color:var(--accent)}
+.drawer-schedule{background:var(--surface2);border-radius:7px;padding:10px 12px;font-size:10px;color:var(--muted);line-height:1.8;border:1px solid var(--border)}
+.drawer-schedule strong{color:var(--text);font-weight:600}
+.drawer-footer{padding:14px 18px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.drawer-save{font-family:var(--font);font-size:12px;font-weight:700;padding:9px;width:100%;cursor:pointer;border-radius:8px;border:none;background:var(--accent);color:#fff;letter-spacing:.3px;transition:background .15s}
+.drawer-save:hover{background:#1e3a8a}
+.drawer-saved{font-size:10px;color:#15803d;text-align:center;opacity:0;transition:opacity .3s;font-weight:600}
+.drawer-cancel{font-family:var(--font);font-size:11px;padding:6px;width:100%;cursor:pointer;border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--muted)}
+.drawer-cancel:hover{border-color:#dc2626;color:#dc2626}
+.edit-hint{font-size:9px;color:var(--muted);padding:6px 18px 0;text-align:center;display:none}
+.edit-hint.show{display:block}
+/* clickable cells get a subtle hover cursor */
+.cell[data-editable], .fcell[data-editable]{cursor:pointer}
+.cell[data-editable]:hover{outline:2px solid var(--accent);outline-offset:-2px;filter:brightness(.92)}
+.fcell[data-editable]:hover{outline:2px solid var(--accent);outline-offset:-2px;filter:brightness(.92)}
+
+/* ── TOOLTIP ── */
 #tip{position:fixed;background:#1a1f36;color:#e8eaf0;border-radius:8px;padding:9px 13px;font-size:11px;line-height:1.7;pointer-events:none;z-index:9999;display:none;max-width:260px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
 #tip .tip-hd{font-weight:700;font-size:12px;margin-bottom:2px}
 #tip .tip-st{font-size:10px;opacity:.7}
@@ -238,6 +324,9 @@ table.dt tr.dt-grp td{background:#eef1f8;padding:4px 12px;font-size:9px;font-wei
 
 <!-- MATRIX / FLOW CONTAINER -->
 <div class="main">
+  <div id="edit-hint-bar" style="font-size:10px;color:var(--muted);padding:0 0 6px;display:none">
+    ✎ <strong>Click any cell</strong> to edit progress for that trade — a panel will open on the right
+  </div>
   <div class="scroll-outer" id="main-wrap"></div>
   <div class="info-bar" id="info-bar"></div>
 </div>
@@ -300,14 +389,86 @@ const NA_402C = new Set(['plaster','skim','wt','ft','wtp','ftp','tbx','bc','fc']
 
 /* ═══════════ HELPERS ═══════════ */
 const TODAY = (()=>{const d=new Date();d.setHours(0,0,0,0);return d})();
-const add  = (d,n)=>{const r=new Date(d);r.setDate(r.getDate()+n);return r};
+const addDays= (d,n)=>{const r=new Date(d);r.setDate(r.getDate()+n);return r};
+const add  = addDays; // alias used widely
 const fmt  = d=>d.toLocaleDateString('en-SG',{day:'2-digit',month:'short',year:'2-digit'});
 const fmtS = d=>d.toLocaleDateString('en-SG',{day:'2-digit',month:'short'});
 const diff = (a,b)=>Math.round((b-a)/86400000);
 const sowk = d=>{const r=new Date(d);r.setDate(r.getDate()-((r.getDay()+6)%7));r.setHours(0,0,0,0);return r};
 const hexA = (h,a)=>{const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return `rgba(${r},${g},${b},${a})`};
+const ymd  = d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
-/* ═══════════ SCHEDULE ENGINE ═══════════ */
+/* ═══════════ SINGAPORE PUBLIC HOLIDAYS 2025–2027 ═══════════
+   Source: MOM Singapore official calendar.
+   6-day week = Mon–Sat. Sundays always excluded.
+   Public holidays falling on Sunday are observed on Monday.
+═══════════════════════════════════════════════════════════ */
+const SG_PH = new Set([
+  // 2025
+  '2025-01-01','2025-01-29','2025-01-30',
+  '2025-04-18','2025-05-01','2025-05-12',
+  '2025-06-07','2025-08-09','2025-10-20',
+  '2025-10-21', // Deepavali observed
+  '2025-12-25',
+  // 2026
+  '2026-01-01','2026-02-17','2026-02-18',
+  '2026-04-03','2026-05-01','2026-05-27',
+  '2026-06-26','2026-08-10', // Aug 9 is Sunday → observed Mon
+  '2026-11-09', // Deepavali
+  '2026-12-25',
+  // 2027
+  '2027-01-01','2027-02-06','2027-02-07',
+  '2027-03-26','2027-05-01','2027-05-16',
+  '2027-08-09','2027-10-29',
+  '2027-12-25','2027-12-27', // Christmas observed
+]);
+
+function isWorkday(d){
+  const day=d.getDay(); // 0=Sun,6=Sat
+  if(day===0) return false;          // Sunday off
+  if(SG_PH.has(ymd(d))) return false; // Public holiday off
+  return true;                        // Mon–Sat and not PH = workday
+}
+
+/* Count working days between two dates (inclusive of start, exclusive of end) */
+function workdaysBetween(start,end){
+  let count=0, d=new Date(start);
+  while(d<end){
+    if(isWorkday(d)) count++;
+    d.setDate(d.getDate()+1);
+  }
+  return count;
+}
+
+/* Advance a date by N working days forward */
+function addWorkdays(d,n){
+  let r=new Date(d);
+  let rem=n;
+  while(rem>0){
+    r.setDate(r.getDate()+1);
+    if(isWorkday(r)) rem--;
+  }
+  return r;
+}
+
+/* Go back N working days from d */
+function subWorkdays(d,n){
+  let r=new Date(d);
+  let rem=n;
+  while(rem>0){
+    r.setDate(r.getDate()-1);
+    if(isWorkday(r)) rem--;
+  }
+  return r;
+}
+
+/* ═══════════ SCHEDULE ENGINE (6-day, SG-holiday aware) ═══════════
+   - Structure (trade 0): each level's end date is paced backward from
+     endDate at takt working-days per level.
+   - Each subsequent trade starts the next workday after the previous
+     trade's end on that same level, runs for tr.days working days.
+   - takt parameter = working days per level per trade.
+════════════════════════════════════════════════════════════════ */
 function buildSchedule(endDate, N, takt){
   const cache={};
   function sched(ti){
@@ -316,50 +477,41 @@ function buildSchedule(endDate, N, takt){
     for(let lvl=N;lvl>=1;lvl--){
       let s,e;
       if(ti===0){
-        e=add(endDate,-(N-lvl)*takt);
-        s=add(e,-takt);
+        // Structure: work backward from endDate
+        e = subWorkdays(endDate, (N-lvl)*takt);
+        s = subWorkdays(e, takt);
       } else {
         const prev=sched(ti-1);
-        const prevE=prev[lvl]?prev[lvl].end:add(endDate,-(N-lvl)*takt);
-        s=add(prevE,takt);
-        e=add(s,tr.days);
+        // This trade starts the workday after previous trade ends at same level
+        const prevE = prev[lvl] ? prev[lvl].end : subWorkdays(endDate,(N-lvl)*takt);
+        s = addWorkdays(prevE, 1);  // next workday after prev trade finishes
+        e = addWorkdays(s, tr.days-1); // tr.days working days duration
       }
-      w[lvl]={start:s,end:e};
+      w[lvl]={start:s, end:e};
     }
     cache[ti]=w; return w;
   }
   return TRADES.map((_,i)=>sched(i));
 }
 
+/* Which level is a trade working on during a given calendar week?
+   Returns the level if the trade window [start,end] overlaps [wk, wk+6] */
 function levelInWeek(scheds,ti,wk,N){
   const wEnd=add(wk,6);
+  // scan all levels — return the one whose window overlaps this week
+  // Prefer higher levels (most recent active work)
   for(let lvl=N;lvl>=1;lvl--){
     const c=scheds[ti][lvl];
-    if(c&&wk<=c.end&&wEnd>=c.start) return lvl;
+    if(c && wk<=c.end && wEnd>=c.start) return lvl;
   }
   return null;
 }
 
-/* trade active at a given LEVEL during a given week */
-function tradeInLevelWeek(scheds,lvl,wk,bkId){
-  const wEnd=add(wk,6);
-  const bk=BLOCKS.find(b=>b.id===bkId);
-  // return array of trade indices active this week at this level
-  const active=[];
-  TRADES.forEach((tr,ti)=>{
-    if(NA_402C.has(tr.id)&&bkId==='402C') return;
-    const c=scheds[ti][lvl];
-    if(c&&wk<=c.end&&wEnd>=c.start) active.push(ti);
-  });
-  return active;
-}
-
-/* cell display status for matrix view */
+/* Cell status for matrix view */
 function cellStatus(ti,lvl,bkId,wk){
   const cur=(CURRENT[bkId]||{})[TRADES[ti].id]||0;
   const bk=BLOCKS.find(b=>b.id===bkId);
   if(NA_402C.has(TRADES[ti].id)&&bkId==='402C') return 'na';
-  if(cur>=bk.N) return 'comp';
   if(!lvl) return null;
   if(lvl<=cur) return 'done';
   const wEnd=add(wk,6);
@@ -403,6 +555,9 @@ function buildTradeLegend(){
 }
 
 /* ═══════════ VIEW SWITCH ═══════════ */
+// Dirty flags — set true whenever CURRENT changes so the next switchView forces re-render
+let _mxDirty=false, _flDirty=false;
+
 function switchView(v){
   activeView=v;
   document.getElementById('vt-mx').classList.toggle('on',v==='matrix');
@@ -410,6 +565,11 @@ function switchView(v){
   document.getElementById('vt-dt').classList.toggle('on',v==='data');
   document.getElementById('status-legend-mx').style.display=v==='matrix'?'flex':'none';
   document.getElementById('status-legend-fl').style.display=v==='flow'?'flex':'none';
+  // Show/hide edit hint bar
+  const hintBar=document.getElementById('edit-hint-bar');
+  if(hintBar) hintBar.style.display=(v==='matrix'||v==='flow')?'block':'none';
+  // Close drawer when switching views
+  closeDrawer();
   renderCurrent();
 }
 
@@ -418,21 +578,42 @@ function switchView(v){
 ═══════════════════════════════════════════════ */
 
 /* localStorage persistence */
-const LS_KEY = 'takt_progress_v1';
+const LS_KEY = 'takt_progress_v2'; // bumped to clear any stale v1 cache
 function saveToLS(){
-  try{localStorage.setItem(LS_KEY,JSON.stringify({CURRENT,NOTES}));}catch(e){}
+  try{
+    // Deep-clone to capture current values at save time
+    const snapshot={
+      CURRENT: JSON.parse(JSON.stringify(CURRENT)),
+      NOTES:   JSON.parse(JSON.stringify(NOTES))
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(snapshot));
+  }catch(e){ console.warn('saveToLS failed:',e); }
 }
 function loadFromLS(){
   try{
-    const d=JSON.parse(localStorage.getItem(LS_KEY)||'null');
-    if(!d) return;
-    Object.keys(d.CURRENT||{}).forEach(bk=>{
-      if(CURRENT[bk]) Object.assign(CURRENT[bk],d.CURRENT[bk]);
+    const raw=localStorage.getItem(LS_KEY);
+    if(!raw) return;
+    const d=JSON.parse(raw);
+    if(!d||typeof d!=='object') return;
+    // Only load values for blocks/trades we recognise
+    BLOCKS.forEach(bk=>{
+      if(!d.CURRENT||!d.CURRENT[bk.id]) return;
+      TRADES.forEach(tr=>{
+        if(tr.id in d.CURRENT[bk.id]){
+          const v=parseInt(d.CURRENT[bk.id][tr.id]);
+          if(!isNaN(v)) CURRENT[bk.id][tr.id]=Math.max(0,Math.min(bk.N,v));
+        }
+      });
     });
-    Object.keys(d.NOTES||{}).forEach(bk=>{
-      if(NOTES[bk]) Object.assign(NOTES[bk],d.NOTES[bk]);
+    BLOCKS.forEach(bk=>{
+      if(!d.NOTES||!d.NOTES[bk.id]) return;
+      TRADES.forEach(tr=>{
+        if(tr.id in d.NOTES[bk.id]){
+          NOTES[bk.id][tr.id]=String(d.NOTES[bk.id][tr.id]||'');
+        }
+      });
     });
-  }catch(e){}
+  }catch(e){ console.warn('loadFromLS failed:',e); }
 }
 
 function pctColors(pct){
@@ -558,26 +739,35 @@ function spinLevel(bkId,trId,delta,maxN,newVal){
   inp.style.color=tr?tr.color:'var(--text)';
 }
 
-/* collect all form values → apply to CURRENT & NOTES → refresh all views */
+/* collect all form values → apply to CURRENT & NOTES → mark other views dirty */
 function applyChanges(){
   const bk=BLOCKS.find(b=>b.id===activeBlock);
+
+  // ── 1. Read every spinner + textarea and write into CURRENT / NOTES ──
   TRADES.forEach(tr=>{
     if(NA_402C.has(tr.id)&&bk.id==='402C') return;
-    const inp=document.getElementById('lvl_'+bk.id+'_'+tr.id);
-    const noteEl=document.getElementById('note_'+bk.id+'_'+tr.id);
+    const inp   = document.getElementById('lvl_' +bk.id+'_'+tr.id);
+    const noteEl= document.getElementById('note_'+bk.id+'_'+tr.id);
     if(inp){
       const v=Math.max(0,Math.min(bk.N,parseInt(inp.value)||0));
       CURRENT[bk.id][tr.id]=v;
     }
-    if(noteEl){
-      NOTES[bk.id][tr.id]=noteEl.value.trim();
-    }
+    if(noteEl) NOTES[bk.id][tr.id]=noteEl.value.trim();
   });
+
+  // ── 2. Persist ──
   saveToLS();
-  // flash save confirmation
-  const ok=document.getElementById('save-ok-msg');
-  if(ok){ok.style.opacity='1';setTimeout(()=>ok.style.opacity='0',2000);}
-  // update progress pill
+
+  // ── 3. Mark matrix + flow views as needing a re-render next time they're visited ──
+  _mxDirty=true;
+  _flDirty=true;
+
+  // ── 4. Re-render data view IN PLACE (stays on this tab) ──
+  //    We rebuild only the data table — NOT the matrix or flow — so we
+  //    never clobber main-wrap with the wrong view.
+  renderData();
+
+  // ── 5. Update progress pill ──
   const cur=CURRENT[bk.id];
   let totalC=0,doneC=0;
   TRADES.forEach(tr=>{
@@ -585,9 +775,30 @@ function applyChanges(){
     totalC+=bk.N; doneC+=Math.min(cur[tr.id]||0,bk.N);
   });
   const pct=Math.round(doneC/totalC*100);
-  document.getElementById('progress-pill').textContent=`${bk.label}: ${pct}% done`;
-  // re-render data view to reflect new values
-  renderData();
+  document.getElementById('progress-pill').textContent=bk.label+': '+pct+'% done';
+
+  // ── 6. Flash confirmation ──
+  const ok=document.getElementById('save-ok-msg');
+  if(ok){ok.style.opacity='1';setTimeout(()=>ok.style.opacity='0',2500);}
+
+  // Pulse the matrix+flow tab buttons green to indicate they are updated
+  ['vt-mx','vt-fl'].forEach(id=>{
+    const btn=document.getElementById(id);
+    if(!btn) return;
+    btn.style.transition='background .2s,color .2s';
+    btn.style.background='rgba(21,128,61,0.15)';
+    btn.style.color='#15803d';
+    setTimeout(()=>{btn.style.background='';btn.style.color='';},2000);
+  });
+
+  // Toast
+  const toast=document.createElement('div');
+  toast.style.cssText='position:fixed;bottom:24px;right:24px;background:#15803d;color:#fff;'+
+    'padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;z-index:2000;'+
+    'box-shadow:0 4px 16px rgba(0,0,0,.2);transition:opacity .4s';
+  toast.textContent='✓ Progress saved. Switch to Trade Matrix or Trade Flow to see updated views.';
+  document.body.appendChild(toast);
+  setTimeout(()=>{toast.style.opacity='0';setTimeout(()=>toast.remove(),400);},3000);
 }
 
 /* reset this block's data to the original seeded values */
@@ -605,15 +816,25 @@ function resetBlock(){
   if(!confirm('Reset all progress for block '+activeBlock+' to original values?')) return;
   const bk=BLOCKS.find(b=>b.id===activeBlock);
   Object.assign(CURRENT[bk.id],ORIGINAL_CURRENT[bk.id]);
-  Object.keys(NOTES[bk.id]).forEach(k=>{ if(ORIGINAL_NOTES[bk.id]) NOTES[bk.id][k]=ORIGINAL_NOTES[bk.id][k]||''; });
+  if(ORIGINAL_NOTES[bk.id]){
+    Object.keys(NOTES[bk.id]).forEach(k=>{NOTES[bk.id][k]=ORIGINAL_NOTES[bk.id][k]||'';});
+  }
   saveToLS();
+  _mxDirty=true;
+  _flDirty=true;
   renderData();
 }
 
 function renderCurrent(){
-  if(activeView==='matrix') renderMatrix();
-  else if(activeView==='flow') renderFlow();
-  else renderData();
+  if(activeView==='matrix'){
+    renderMatrix();
+    _mxDirty=false;
+  } else if(activeView==='flow'){
+    renderFlow();
+    _flDirty=false;
+  } else {
+    renderData();
+  }
 }
 
 /* ═══════════ SHARED WEEK COLS ═══════════ */
@@ -649,12 +870,15 @@ function buildMonthWkHeaders(weeks,todayWk,cornerHtml){
 }
 
 /* ═══════════════════════════════════════════════
-   MATRIX VIEW  —  Y: trades   X: time   cell: level
+   MATRIX VIEW — Y: trades  X: time  cell: level number
+   Every level L1–LN is explicitly shown per trade row.
+   The cell for each week shows which level is active that week.
+   Done levels = solid trade color. Active = ringed. Future = light bg.
 ═══════════════════════════════════════════════ */
 function renderMatrix(){
   const endDate=new Date(document.getElementById('ctrl-end').value);
-  const takt=parseInt(document.getElementById('ctrl-takt').value)||7;
-  const lead=parseInt(document.getElementById('ctrl-lead').value)||3;
+  const takt   =parseInt(document.getElementById('ctrl-takt').value)||7;
+  const lead   =parseInt(document.getElementById('ctrl-lead').value)||3;
   const {weeks,todayWk}=getWeeks();
 
   const bk=BLOCKS.find(b=>b.id===activeBlock);
@@ -669,11 +893,12 @@ function renderMatrix(){
   const pct=Math.round(doneCells/totalCells*100);
   document.getElementById('progress-pill').textContent=`${bk.label}: ${pct}% done`;
 
+  /* ── corner cell ── */
   const cornerHtml=`<th class="tc" rowspan="2" style="text-align:left;padding:0;background:#f0f2f8;border-right:2px solid var(--border2);border-bottom:2px solid var(--border2)">
     <div style="display:flex;align-items:center;gap:7px;padding:8px 10px">
       <div>
         <div style="font-size:12px;font-weight:700;color:var(--text)">${bk.label} (${bk.sub})</div>
-        <div style="font-size:9px;color:var(--muted);font-family:var(--mono)">N=L${bk.N} · Takt ${takt}d · Lead N-${lead}</div>
+        <div style="font-size:9px;color:var(--muted);font-family:var(--mono)">N=L${bk.N} · Takt ${takt}wd · Lead N-${lead} · Mon–Sat excl SG PH</div>
       </div>
     </div>
   </th>`;
@@ -681,180 +906,207 @@ function renderMatrix(){
 
   let body='';
   let lastGrp='';
+
   TRADES.forEach((tr,ti)=>{
+    /* ── group separator ── */
     if(tr.grp!==lastGrp){
       lastGrp=tr.grp;
-      body+=`<tr class="grp-row"><td class="tc">${tr.grp}</td>${weeks.map(()=>'<td style="background:#eef1f8;border-bottom:1px solid var(--border2);border-top:1px solid var(--border2)"></td>').join('')}</tr>`;
+      body+=`<tr class="grp-row"><td class="tc">${tr.grp}</td>${
+        weeks.map(()=>'<td style="background:#eef1f8;border-bottom:1px solid var(--border2);border-top:1px solid var(--border2)"></td>').join('')
+      }</tr>`;
     }
-    body+=`<tr>`;
-    body+=`<td class="tc" style="border-right:2px solid var(--border2);border-bottom:1px solid var(--border);padding:0;background:#fff;min-width:150px;max-width:150px">
-      <div style="display:flex;align-items:center;gap:7px;padding:6px 10px">
-        <div style="width:4px;height:28px;border-radius:2px;flex-shrink:0;background:${tr.color}"></div>
-        <div>
-          <div style="font-size:11px;font-weight:600;color:${tr.color}">${tr.name}</div>
-          <div style="font-size:9px;color:var(--faint);font-family:var(--mono)">${tr.days}d/lvl</div>
-        </div>
-      </div>
-    </td>`;
+
     const isNA=NA_402C.has(tr.id)&&bk.id==='402C';
     const doneLvl=Math.min(cur[tr.id]||0,bk.N);
-    const isComplete=doneLvl>=bk.N;
-    weeks.forEach(wk=>{
-      const isT=wk.getTime()===todayWk.getTime();
-      const isPast=wk<todayWk;
-      if(isNA){
-        body+=`<td class="dc${isT?' today-col':''}"><div class="cell" style="background:#f4f6fb"><span style="font-size:9px;color:#d1d5db">N/A</span></div></td>`;
-        return;
-      }
-      const lvl=levelInWeek(scheds,ti,wk,bk.N);
-      const st=lvl?cellStatus(ti,lvl,bk.id,wk):(isPast?'past-empty':'empty');
-      let cs='',lv='',sub='';
-      const c=tr.color,cl=tr.light;
-      if(st==='done'||st==='comp'){cs=`background:${c};color:#fff;`;lv=lvl?'L'+lvl:'✓';if(isComplete&&!lvl){lv='✓';sub='Done';}}
-      else if(st==='act'){cs=`background:${c};color:#fff;box-shadow:0 0 0 2px ${c},0 2px 6px ${hexA(c,.5)};`;lv='L'+lvl;}
-      else if(st==='soon'){cs=`background:${hexA(c,.8)};color:#fff;`;lv='L'+lvl;}
-      else if(st==='fut'){cs=`background:#fff;color:${c};font-weight:800;border-left:3px solid ${c};`;lv='L'+lvl;}
-      else if(st==='over'){cs=`background:#dc2626;color:#fff;`;lv=lvl?'L'+lvl:'!';}
-      else{cs=isPast?'background:#f0f2f8;':'background:#fafbfd;';lv='';}
-      const cobj=scheds[ti][lvl]||{};
-      const noteStr=((NOTES[bk.id]||{})[tr.id]||'').replace(/\|/g,'/');
-      body+=`<td class="dc${isT?' today-col':''}">
-        <div class="cell" style="${cs}"
-          data-tt="${tr.name}|${lvl?'L'+lvl+' of L'+bk.N:'No work'}|${bk.label}|${lvl&&cobj.start?fmtS(cobj.start)+'–'+fmtS(cobj.end):''}|${st.toUpperCase()}|${tr.color}|${noteStr}">
-          <span class="lv">${lv}</span>${sub?`<span class="pct">${sub}</span>`:''}
-          ${isT&&lvl?'<div class="now-badge">NOW</div>':''}
+    const noteStr=((NOTES[bk.id]||{})[tr.id]||'').replace(/\|/g,'/');
+    const c=tr.color, cl=tr.light;
+
+    /* ── trade label cell ── */
+    body+=`<tr>
+      <td class="tc" style="border-right:2px solid var(--border2);border-bottom:1px solid var(--border);padding:0;background:#fff;min-width:150px;max-width:150px">
+        <div style="display:flex;align-items:center;gap:7px;padding:5px 10px">
+          <div style="width:4px;height:28px;border-radius:2px;flex-shrink:0;background:${c}"></div>
+          <div>
+            <div style="font-size:11px;font-weight:600;color:${c}">${tr.name}</div>
+            <div style="font-size:8px;color:var(--faint);font-family:var(--mono)">${tr.days}wd/lvl · done L${doneLvl}/${bk.N}</div>
+          </div>
         </div>
       </td>`;
-    });
+
+    if(isNA){
+      weeks.forEach(wk=>{
+        const isT=wk.getTime()===todayWk.getTime();
+        body+=`<td class="dc${isT?' today-col':''}"><div class="cell" style="background:#f4f6fb">
+          <span style="font-size:9px;color:#d1d5db">N/A</span></div></td>`;
+      });
+    } else {
+      weeks.forEach(wk=>{
+        const isT=wk.getTime()===todayWk.getTime();
+        const isPast=wk<todayWk;
+
+        /* Which level is this trade working on this week? */
+        const lvl=levelInWeek(scheds,ti,wk,bk.N);
+        const cobj=lvl?scheds[ti][lvl]:{};
+
+        let cs='', lv='', sub='', st='';
+        if(lvl===null){
+          /* No work scheduled this week for this trade */
+          cs=isPast?'background:#f0f2f8;':'background:#fafbfd;';
+          lv=''; st='empty';
+        } else {
+          st=cellStatus(ti,lvl,bk.id,wk);
+          if(st==='done'){
+            cs=`background:${c};color:#fff;`;
+            lv='L'+lvl;
+          } else if(st==='act'){
+            cs=`background:${c};color:#fff;box-shadow:0 0 0 2px ${c},0 2px 6px ${hexA(c,.5)};`;
+            lv='L'+lvl;
+          } else if(st==='soon'){
+            cs=`background:${hexA(c,.8)};color:#fff;`;
+            lv='L'+lvl;
+          } else if(st==='over'){
+            cs=`background:#dc2626;color:#fff;`;
+            lv='L'+lvl;
+          } else {
+            /* future */
+            cs=`background:#fff;color:${c};font-weight:800;border-left:3px solid ${c};`;
+            lv='L'+lvl;
+          }
+        }
+
+        const tipDates=lvl&&cobj.start?fmtS(cobj.start)+'–'+fmtS(cobj.end):'';
+        const schedHtml=lvl&&cobj.start
+          ? '<strong>'+tr.name+'</strong> on '+bk.label+'<br>Level <strong>L'+lvl+'</strong> of L'+bk.N+'<br>'+fmtS(cobj.start)+' – '+fmtS(cobj.end)+'<br>Duration: '+tr.days+' working days'
+          : tr.name+' on '+bk.label+' — no work this week';
+        body+=`<td class="dc${isT?' today-col':''}">
+          <div class="cell" style="${cs}"
+            data-tt="${tr.name}|${lvl?'L'+lvl+' of L'+bk.N:'No work this week'}|${bk.label}|${tipDates}|${(st||'empty').toUpperCase()}|${c}|${noteStr}"
+            data-editable="1" data-bk-id="${bk.id}" data-tr-id="${tr.id}" data-color="${c}" data-sched="${schedHtml}">
+            <span class="lv">${lv}</span>
+            ${isT&&lvl?'<div class="now-badge">NOW</div>':''}
+          </div>
+        </td>`;
+      });
+    }
+
     body+=`</tr>`;
   });
 
   document.getElementById('main-wrap').innerHTML=
     `<table class="mx"><thead><tr>${moHtml}</tr><tr>${wkHtml}</tr></thead><tbody>${body}</tbody></table>`;
+
+  /* Auto-scroll to today column */
+  setTimeout(()=>{
+    const wrap=document.getElementById('main-wrap');
+    const todayTh=wrap&&wrap.querySelector('th.today-h');
+    if(todayTh) todayTh.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+  },100);
+
   updateInfoBar(bk,endDate,takt,lead,doneCells,totalCells,pct);
 }
 
 /* ═══════════════════════════════════════════════
-   FLOW VIEW  —  Y: levels (17→1)   X: time   cell: active trade(s)
-   Each cell shows which trade is working at that level that week.
-   Fully done levels are grayed out. Future levels show scheduled trades.
+   FLOW VIEW — Y: levels L2→LN  X: time  cell: trade name
+   Each row = one floor level. Each cell = which trade is active
+   at that level that week. All trades from Structure → Screed shown.
+   6-day workweek, SG public holidays excluded.
 ═══════════════════════════════════════════════ */
 function renderFlow(){
   const endDate=new Date(document.getElementById('ctrl-end').value);
-  const takt=parseInt(document.getElementById('ctrl-takt').value)||7;
-  const lead=parseInt(document.getElementById('ctrl-lead').value)||3;
+  const takt   =parseInt(document.getElementById('ctrl-takt').value)||7;
+  const lead   =parseInt(document.getElementById('ctrl-lead').value)||3;
   const {weeks,todayWk}=getWeeks();
 
   const bk=BLOCKS.find(b=>b.id===activeBlock);
   const cur=CURRENT[bk.id]||{};
   const scheds=buildSchedule(endDate,bk.N,takt);
 
+  /* applicable trades for this block */
+  const appTrades=TRADES.filter(tr=>!(NA_402C.has(tr.id)&&bk.id==='402C'));
+  const totalTrades=appTrades.length;
+
   let totalCells=0,doneCells=0;
-  TRADES.forEach(tr=>{
-    if(NA_402C.has(tr.id)&&bk.id==='402C') return;
-    totalCells+=bk.N; doneCells+=Math.min(cur[tr.id]||0,bk.N);
-  });
+  appTrades.forEach(tr=>{totalCells+=bk.N; doneCells+=Math.min(cur[tr.id]||0,bk.N);});
   const pct=Math.round(doneCells/totalCells*100);
-  document.getElementById('progress-pill').textContent=`${bk.label}: ${pct}% done`;
+  document.getElementById('progress-pill').textContent=bk.label+': '+pct+'% done';
 
-  /* count applicable trades per level for "done" check */
   function tradesDoneAtLevel(lvl){
-    return TRADES.filter(tr=>{
-      if(NA_402C.has(tr.id)&&bk.id==='402C') return false;
-      return (cur[tr.id]||0)>=lvl;
-    }).length;
+    return appTrades.filter(tr=>(cur[tr.id]||0)>=lvl).length;
   }
-  function totalTradesAtLevel(){
-    return TRADES.filter(tr=>!(NA_402C.has(tr.id)&&bk.id==='402C')).length;
-  }
-  const totalTrades=totalTradesAtLevel();
 
-  const cornerHtml=`<th class="tc" rowspan="2" style="text-align:center;padding:0;background:#f0f2f8;border-right:2px solid var(--border2);border-bottom:2px solid var(--border2);min-width:90px;max-width:90px">
-    <div style="padding:6px 4px;display:flex;flex-direction:column;align-items:center;gap:2px">
-      <div style="font-size:12px;font-weight:700;color:var(--text)">${bk.label}</div>
-      <div style="font-size:9px;color:var(--muted);font-family:var(--mono)">N=L${bk.N}</div>
-      <div style="font-size:9px;color:var(--muted)">Level ↓ · Time →</div>
-    </div>
-  </th>`;
+  const cornerHtml='<th class="tc" rowspan="2" style="text-align:center;padding:0;background:#f0f2f8;border-right:2px solid var(--border2);border-bottom:2px solid var(--border2);min-width:105px;max-width:105px"><div style="padding:6px 5px;display:flex;flex-direction:column;align-items:center;gap:2px"><div style="font-size:12px;font-weight:700;color:var(--text)">'+bk.label+' ('+bk.sub+')</div><div style="font-size:8px;color:var(--muted);font-family:var(--mono)">N=L'+bk.N+' · Takt '+takt+'wd</div><div style="font-size:8px;color:var(--muted)">Level ↓ · Time →</div><div style="font-size:7px;color:var(--faint)">Mon–Sat, excl SG PH</div></div></th>';
   const {moHtml,wkHtml}=buildMonthWkHeaders(weeks,todayWk,cornerHtml);
 
   let body='';
-  /* Rows: level 17 down to 1 */
+
   for(let lvl=2;lvl<=bk.N;lvl++){
-    const doneAtLvl=tradesDoneAtLevel(lvl);
-    const allDone=doneAtLvl>=totalTrades;
-    const lvlBg=allDone?'#f0f2f8':'#ffffff';
-    const lvlNumStyle=allDone?'color:var(--muted)':'color:var(--text)';
+    const doneCount=tradesDoneAtLevel(lvl);
+    const allDone=doneCount>=totalTrades;
+    const lvlBg=allDone?'#eef1f8':'#ffffff';
 
-    body+=`<tr>`;
-    /* sticky level label */
-    body+=`<td class="tc" style="background:${lvlBg};border-right:2px solid var(--border2);border-bottom:1px solid var(--border);min-width:90px;max-width:90px;padding:0">
-      <div class="lvl-label ${allDone?'lvl-done':''}">
-        <div class="lvl-num" style="${lvlNumStyle}">L${lvl}</div>
-        <div class="lvl-sub">${allDone?'✓ Done':`${doneAtLvl}/${totalTrades} trades`}</div>
-      </div>
-    </td>`;
+    body+='<tr>';
+    body+='<td class="tc" style="background:'+lvlBg+';border-right:2px solid var(--border2);border-bottom:1px solid var(--border);min-width:105px;max-width:105px;padding:0"><div class="lvl-label'+(allDone?' lvl-done':'')+'"><div class="lvl-num" style="'+(allDone?'color:var(--muted)':'color:var(--text)')+'">L'+lvl+'</div><div class="lvl-sub">'+(allDone?'✓ All trades done':doneCount+'/'+totalTrades+' trades done')+'</div></div></td>';
 
-    weeks.forEach(wk=>{
+    weeks.forEach(function(wk){
       const isT=wk.getTime()===todayWk.getTime();
       const wEnd=add(wk,6);
       const isPast=wk<todayWk;
 
-      /* find which trades are active at this level this week */
       const activeTrades=[];
-      TRADES.forEach((tr,ti)=>{
+      TRADES.forEach(function(tr,ti){
         if(NA_402C.has(tr.id)&&bk.id==='402C') return;
-        const c=scheds[ti][lvl];
-        if(c&&wk<=c.end&&wEnd>=c.start) activeTrades.push({tr,ti,c});
+        const win=scheds[ti][lvl];
+        if(win&&wk<=win.end&&wEnd>=win.start) activeTrades.push({tr:tr,ti:ti,win:win});
       });
 
       let cellHtml='';
       if(allDone){
-        /* level fully complete */
-        cellHtml=`<div class="fcell" style="background:#eef1f8;">
-          <span class="tn" style="font-size:10px;color:var(--muted)">✓</span>
-        </div>`;
+        cellHtml='<div class="fcell" style="background:#eef1f8"><span class="tn" style="font-size:11px;color:var(--muted)">✓</span></div>';
       } else if(activeTrades.length===0){
-        /* nothing scheduled here */
-        cellHtml=`<div class="fcell" style="background:${isPast?'#f0f2f8':'#fafbfd'};">
-          <span style="font-size:10px;color:#d1d5db">·</span>
-        </div>`;
+        cellHtml='<div class="fcell" style="background:'+(isPast?'#f0f2f8':'#fafbfd')+'"><span style="font-size:11px;color:#d1d5db">·</span></div>';
       } else {
-        /* one or more trades active — stack them (usually 1, but takt overlap possible) */
-        const tr=activeTrades[0].tr;
-        const ti=activeTrades[0].ti;
-        const c=activeTrades[0].c;
+        const first=activeTrades[0];
+        const tr=first.tr, ti=first.ti, win=first.win;
         const doneLvl=cur[tr.id]||0;
-        const isThisActive=lvl===doneLvl+1;
         const isDone=lvl<=doneLvl;
+        const isActive=lvl===doneLvl+1;
         const isOver=!isDone&&wEnd<TODAY;
 
         let bg,textCol,border='';
         if(isDone){bg=tr.color;textCol='#fff';}
         else if(isOver){bg='#dc2626';textCol='#fff';}
-        else if(isThisActive&&isT){bg=tr.color;textCol='#fff';border=`box-shadow:0 0 0 2px ${tr.color};`;}
-        else if(isThisActive){bg=hexA(tr.color,.8);textCol='#fff';}
-        else{/* future */bg=tr.light;textCol=tr.color;border=`border-left:3px solid ${tr.color};`;}
+        else if(isActive&&isT){bg=tr.color;textCol='#fff';border='box-shadow:0 0 0 2px '+tr.color+';';}
+        else if(isActive){bg=hexA(tr.color,.85);textCol='#fff';}
+        else{bg=tr.light;textCol=tr.color;border='border-left:3px solid '+tr.color+';font-weight:800;';}
 
-        const extra=activeTrades.length>1?`+${activeTrades.length-1}`:'';
-        const dateStr=fmtS(c.start)+'–'+fmtS(c.end);
-        const allNames=activeTrades.map(a=>a.tr.name).join(', ');
+        const overlap=activeTrades.length>1?'<span style="position:absolute;top:1px;right:2px;font-size:7px;font-weight:700;color:'+textCol+';opacity:.75">+' +(activeTrades.length-1)+'</span>':'';
+        const allNames=activeTrades.map(function(a){return a.tr.name;}).join(', ');
+        const dateStr=fmtS(win.start)+'–'+fmtS(win.end);
+        const fnote=((NOTES[bk.id]||{})[tr.id]||'').replace(/[|]/g,'/');
+        const tipSt=isDone?'DONE':isOver?'OVERDUE':isActive?'ACTIVE':'SCHEDULED';
+        const flSchedHtml='<strong>'+tr.name+'</strong> on '+bk.label+'<br>Level <strong>L'+lvl+'</strong> of L'+bk.N+'<br>'+dateStr+'<br>Duration: '+tr.days+' working days';
 
-        const fnote=((NOTES[bk.id]||{})[tr.id]||'').replace(/\|/g,'/');
-        cellHtml=`<div class="fcell" style="background:${bg};${border}"
-          data-tt="${allNames}|L${lvl} · ${bk.label}|${bk.label}|${dateStr}|${isDone?'DONE':isOver?'OVERDUE':isThisActive?'ACTIVE':'SCHEDULED'}|${tr.color}|${fnote}">
-          <span class="tn" style="color:${textCol};font-size:${activeTrades.length>1?8:9}px">${tr.short}${extra?'<br><span style=\'font-size:7px\'>'+extra+'</span>':''}</span>
-          ${isT&&!isDone?'<div class="now-badge">NOW</div>':''}
-        </div>`;
+        cellHtml='<div class="fcell" style="background:'+bg+';'+border+'position:relative"'
+          +' data-tt="'+allNames+'|L'+lvl+' · '+bk.label+'|'+bk.label+'|'+dateStr+'|'+tipSt+'|'+tr.color+'|'+fnote+'"'
+          +' data-editable="1" data-bk-id="'+bk.id+'" data-tr-id="'+tr.id+'" data-color="'+tr.color+'" data-sched="'+flSchedHtml+'">'
+          +'<span class="tn" style="color:'+textCol+';font-size:9px;font-weight:700">'+tr.short+'</span>'
+          +overlap+(isT&&!isDone?'<div class="now-badge">NOW</div>':'')+'</div>';
       }
 
-      body+=`<td class="dc${isT?' today-col':''}" style="padding:2px">${cellHtml}</td>`;
+      body+='<td class="dc'+(isT?' today-col':'')+'" style="padding:2px">'+cellHtml+'</td>';
     });
-    body+=`</tr>`;
+
+    body+='</tr>';
   }
 
-  document.getElementById('main-wrap').innerHTML=
-    `<table class="fl"><thead><tr>${moHtml}</tr><tr>${wkHtml}</tr></thead><tbody>${body}</tbody></table>`;
+  document.getElementById('main-wrap').innerHTML='<table class="fl"><thead><tr>'+moHtml+'</tr><tr>'+wkHtml+'</tr></thead><tbody>'+body+'</tbody></table>';
+
+  setTimeout(function(){
+    const wrap=document.getElementById('main-wrap');
+    const todayTh=wrap&&wrap.querySelector('th.today-h');
+    if(todayTh) todayTh.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+  },100);
+
   updateInfoBar(bk,endDate,takt,lead,doneCells,totalCells,pct);
 }
 
@@ -1150,6 +1402,106 @@ function confirmImport(){
   setTimeout(()=>toast.remove(),3500);
 }
 
+/* ═══════════ EDIT DRAWER ═══════════ */
+let _drBkId='', _drTrId='', _drMaxN=0, _drColor='';
+
+function openDrawer(bkId, trId, color, scheduledHtml){
+  _drBkId=bkId; _drTrId=trId;
+  const bk=BLOCKS.find(b=>b.id===bkId);
+  const tr=TRADES.find(t=>t.id===trId);
+  _drMaxN=bk.N; _drColor=color||tr.color;
+
+  document.getElementById('dr-swatch').style.background=_drColor;
+  document.getElementById('dr-title').textContent=tr.name;
+  document.getElementById('dr-title').style.color=_drColor;
+  document.getElementById('dr-sub').textContent=bk.label+' ('+bk.sub+') · N = L'+bk.N;
+  document.getElementById('dr-maxN').textContent='L'+bk.N;
+
+  const curLvl=Math.min(CURRENT[bkId][trId]||0, bk.N);
+  document.getElementById('dr-lvl').value=curLvl;
+  document.getElementById('dr-lvl').max=bk.N;
+  document.getElementById('dr-note').value=NOTES[bkId][trId]||'';
+  document.getElementById('dr-sched').innerHTML=scheduledHtml||'<em>No schedule window found</em>';
+  document.getElementById('dr-saved-msg').style.opacity='0';
+  drUpdateBar(curLvl);
+
+  const drawer=document.getElementById('edit-drawer');
+  drawer.classList.add('open');
+
+  // shrink main-wrap so table doesn't hide under drawer
+  document.getElementById('main-wrap').style.marginRight='324px';
+
+  // show hint
+  const hint=document.getElementById('edit-hint');
+  hint.classList.add('show');
+}
+
+function closeDrawer(){
+  document.getElementById('edit-drawer').classList.remove('open');
+  document.getElementById('main-wrap').style.marginRight='';
+}
+
+function drSpin(delta){
+  const inp=document.getElementById('dr-lvl');
+  const v=Math.max(0,Math.min(_drMaxN,(parseInt(inp.value)||0)+delta));
+  inp.value=v;
+  drUpdateBar(v);
+}
+function drSpinVal(val){
+  const v=Math.max(0,Math.min(_drMaxN,parseInt(val)||0));
+  document.getElementById('dr-lvl').value=v;
+  drUpdateBar(v);
+}
+function drUpdateBar(v){
+  const pct=_drMaxN>0?Math.round(v/_drMaxN*100):0;
+  const fill=document.getElementById('dr-bar');
+  const pctEl=document.getElementById('dr-pct');
+  const tr=TRADES.find(t=>t.id===_drTrId);
+  const col=tr?tr.color:_drColor;
+  if(fill){fill.style.width=pct+'%';fill.style.background=col;}
+  if(pctEl){
+    const pc=pct>=80?'#15803d':pct>=50?'#1e40af':pct>=20?'#b45309':'#dc2626';
+    pctEl.textContent='L'+v+' / L'+_drMaxN+' · '+pct+'%';
+    pctEl.style.color=pc;
+  }
+}
+
+function drawerSave(){
+  if(!_drBkId||!_drTrId) return;
+  const bk=BLOCKS.find(b=>b.id===_drBkId);
+  const v=Math.max(0,Math.min(bk.N,parseInt(document.getElementById('dr-lvl').value)||0));
+  const note=document.getElementById('dr-note').value.trim();
+
+  CURRENT[_drBkId][_drTrId]=v;
+  NOTES[_drBkId][_drTrId]=note;
+  saveToLS();
+
+  // flash saved msg
+  const msg=document.getElementById('dr-saved-msg');
+  msg.style.opacity='1'; setTimeout(()=>msg.style.opacity='0',2000);
+
+  // update progress pill
+  const cur=CURRENT[_drBkId];
+  let totalC=0,doneC=0;
+  TRADES.forEach(tr=>{
+    if(NA_402C.has(tr.id)&&_drBkId==='402C') return;
+    totalC+=bk.N; doneC+=Math.min(cur[tr.id]||0,bk.N);
+  });
+  const pct=Math.round(doneC/totalC*100);
+  document.getElementById('progress-pill').textContent=bk.label+': '+pct+'% done';
+
+  // Re-render current view in place (drawer stays open for more edits)
+  renderCurrent();
+}
+
+/* Delegate click events on main-wrap to open drawer */
+document.addEventListener('click', function(e){
+  const cell=e.target.closest('[data-editable]');
+  if(!cell) return;
+  const d=cell.dataset;
+  openDrawer(d.bkId, d.trId, d.color, d.sched||'');
+});
+
 /* ═══════════ INIT ═══════════ */
 // Deep copy of original notes for reset function
 const ORIGINAL_NOTES = JSON.parse(JSON.stringify(NOTES));
@@ -1164,5 +1516,43 @@ buildBlockTabs();
 buildTradeLegend();
 renderMatrix();
 </script>
+<!-- EDIT DRAWER -->
+<div id="edit-drawer" role="dialog" aria-label="Edit progress">
+  <div class="drawer-header">
+    <div class="drawer-swatch" id="dr-swatch"></div>
+    <div>
+      <div class="drawer-title" id="dr-title">Trade name</div>
+      <div class="drawer-sub" id="dr-sub">Block · Level</div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawer()" title="Close">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="drawer-field">
+      <div class="drawer-label">Level Done (out of <span id="dr-maxN"></span>)</div>
+      <div class="drawer-spinner">
+        <button onclick="drSpin(-1)">−</button>
+        <input type="number" id="dr-lvl" min="0" value="0" oninput="drSpinVal(this.value)">
+        <button onclick="drSpin(1)">+</button>
+      </div>
+      <div class="drawer-progress"><div class="drawer-progress-fill" id="dr-bar"></div></div>
+      <div class="drawer-pct" id="dr-pct"></div>
+    </div>
+    <div class="drawer-field">
+      <div class="drawer-label">Site Notes</div>
+      <textarea class="drawer-textarea" id="dr-note" placeholder="Enter site notes…" rows="3"></textarea>
+    </div>
+    <div class="drawer-field">
+      <div class="drawer-label">Scheduled window</div>
+      <div class="drawer-schedule" id="dr-sched">—</div>
+    </div>
+  </div>
+  <div class="drawer-footer">
+    <button class="drawer-save" onclick="drawerSave()">✓ Save &amp; Update Views</button>
+    <div class="drawer-saved" id="dr-saved-msg">✓ Saved</div>
+    <button class="drawer-cancel" onclick="closeDrawer()">Cancel</button>
+  </div>
+</div>
+<div class="edit-hint" id="edit-hint">✎ Click any cell to edit progress</div>
+
 </body>
 </html>

@@ -412,6 +412,8 @@ table.wk-table tbody tr:last-child td{border-bottom:none}
 .chart-legend{display:flex;gap:18px;justify-content:center;margin-top:14px;font-size:13px;color:var(--muted)}
 .chart-legend .lg{display:inline-flex;align-items:center;gap:5px}
 .chart-legend .sw{width:10px;height:10px;border-radius:3px}
+.lob-scroll{overflow-x:auto;overflow-y:hidden;border:1px solid var(--border2);border-radius:8px}
+.lob-scroll svg{display:block}
 
 /* ── PRINT / PDF EXPORT ── */
 @media print{
@@ -451,6 +453,7 @@ table.wk-table tbody tr:last-child td{border-bottom:none}
   <button class="vtab" id="vt-dt" onclick="switchView('data')">📋 Site Progress Data</button>
   <button class="vtab" id="vt-lps" onclick="switchView('lookahead')">🗓️ Look-Ahead (LPS)</button>
   <button class="vtab" id="vt-dash" onclick="switchView('dashboard')">🚦 Dashboard</button>
+  <button class="vtab" id="vt-lob" onclick="switchView('lob')">📈 LoB</button>
   <div class="topbar-right">
     <span class="pill" id="today-pill"></span>
     <span class="pill" id="data-source-pill" style="color:#15803d;border-color:#bbf7d0;background:#f0fdf4"></span>
@@ -730,6 +733,60 @@ function buildForwardSchedule(bk, takt){
   return TRADES.map((_,i)=>sched(i));
 }
 
+/* Same forward-anchored model as buildForwardSchedule, but also flags each level with
+   whether its start was pushed out by a predecessor wait (vs. the crew simply moving
+   straight to the next level) — the "start-stop" signal for the LoB chart. Additionally
+   synthesizes ESTIMATED dates for already-completed levels (1..doneLvl) by working
+   backward from today at the trade's own takt duration — the source data only has a
+   cumulative "done" count, not verified per-level historical dates, so this backward
+   portion is a best-effort reconstruction (flagged estimated:true) rather than fact,
+   letting the LoB chart show the whole L1→LN process instead of starting blank at today. */
+function buildLoBSchedule(bk, takt){
+  const cur=CURRENT[bk.id]||{};
+  const cache={};
+  function sched(ti){
+    if(cache[ti]) return cache[ti];
+    const tr=TRADES[ti];
+    const doneLvl=Math.min(cur[tr.id]||0,bk.N);
+    const w={};
+    let prevOwnEnd=null;
+    for(let lvl=doneLvl+1; lvl<=bk.N; lvl++){
+      let predReady=null;
+      if(ti>0){
+        const predTr=TRADES[ti-1];
+        const predDone=Math.min(cur[predTr.id]||0,bk.N);
+        if(lvl>predDone){
+          const predSched=sched(ti-1);
+          if(predSched[lvl]) predReady=addWorkdays(predSched[lvl].end,1);
+        }
+      }
+      const ownReady = prevOwnEnd ? addWorkdays(prevOwnEnd,1) : TODAY;
+      let start = ownReady;
+      let waited=false, waitDays=0;
+      if(predReady && predReady>start){
+        waitDays = workdaysBetween(start, predReady);
+        start = predReady;
+        waited = waitDays>0;
+      }
+      if(start<TODAY) start=TODAY;
+      const end = addWorkdays(start, tr.days-1);
+      w[lvl]={start,end,waited,waitDays,estimated:false};
+      prevOwnEnd=end;
+    }
+    // Backward estimate for completed levels — steps back from the first future level's
+    // start (or today, if the trade is fully done) at the trade's own duration per level.
+    let nextStart = w[doneLvl+1] ? w[doneLvl+1].start : TODAY;
+    for(let lvl=doneLvl; lvl>=1; lvl--){
+      const end=subWorkdays(nextStart,1);
+      const start=subWorkdays(end,tr.days-1);
+      w[lvl]={start,end,waited:false,waitDays:0,estimated:true};
+      nextStart=start;
+    }
+    cache[ti]=w; return w;
+  }
+  return TRADES.map((_,i)=>sched(i));
+}
+
 /* Which level is a trade working on during a given calendar week?
    Returns the level if the trade window [start,end] overlaps [wk, wk+6] */
 function levelInWeek(scheds,ti,wk,N){
@@ -765,6 +822,10 @@ let activeView='matrix'; // 'matrix' | 'flow' | 'data' | 'lookahead' | 'dashboar
 let lpsWeeksSelected=new Set([1,2,3,4,5,6]);
 let lpsTradeFilter=new Set(TRADES.map(t=>t.id));
 let lpsBlockFilter=new Set(BLOCKS.map(b=>b.id));
+
+// Line of Balance (LoB) state
+let lobBlock='402A';
+let lobTradeFilter=new Set(TRADES.map(t=>t.id));
 
 /* ═══════════ BLOCK TABS ═══════════ */
 function buildBlockTabs(){
@@ -806,11 +867,12 @@ function switchView(v){
   document.getElementById('vt-dt').classList.toggle('on',v==='data');
   document.getElementById('vt-lps').classList.toggle('on',v==='lookahead');
   document.getElementById('vt-dash').classList.toggle('on',v==='dashboard');
+  document.getElementById('vt-lob').classList.toggle('on',v==='lob');
   const blockTabs=document.getElementById('block-tabs');
-  if(blockTabs) blockTabs.style.display=(v==='lookahead'||v==='dashboard')?'none':'flex';
+  if(blockTabs) blockTabs.style.display=(v==='lookahead'||v==='dashboard'||v==='lob')?'none':'flex';
   document.getElementById('status-legend-mx').style.display=v==='matrix'?'flex':'none';
   document.getElementById('status-legend-fl').style.display=v==='flow'?'flex':'none';
-  // Legend/controls bars are only meaningful for matrix/flow; hide for data/lookahead/dashboard
+  // Legend/controls bars are only meaningful for matrix/flow; hide for data/lookahead/dashboard/lob
   const legendWrap=document.querySelector('.legend-wrap');
   if(legendWrap) legendWrap.style.display=(v==='matrix'||v==='flow'||v==='lookahead'||v==='dashboard')?'flex':'none';
   const ctrlWrap=document.querySelector('.ctrl-wrap');
@@ -1087,6 +1149,8 @@ function renderCurrent(){
     renderLookahead();
   } else if(activeView==='dashboard'){
     renderDashboard();
+  } else if(activeView==='lob'){
+    renderLoB();
   } else {
     renderData();
   }
@@ -1955,6 +2019,261 @@ function renderDashboard(){
   `;
 }
 
+/* ═══════════════════════════════════════════════
+   LINE OF BALANCE (LoB) VIEW
+   Classic time-location chart: X = calendar time, Y = level. Each trade is drawn as a line
+   through the levels it still has to complete, built off buildLoBSchedule() (same
+   forward-anchored, actual-progress model as the Look-Ahead tab). Two things to look for:
+   - CRASHING: a later trade's line catching up to / passing an earlier trade's on the same
+     level — a real sequence conflict. Marked with a red "!" circle at today's date.
+   - START-STOP: a dashed red segment on a trade's line — that level's start was pushed out
+     because its predecessor hadn't cleared the level yet (a genuine wait, not just slow pace).
+   Only today-onward is dated (completed levels have no per-level history in the source
+   data), so each trade's line starts at its current actual level and runs forward.
+   Row height / column width are set generously (52px / 60px) specifically so lines from
+   adjacent levels and weeks never crowd together.
+═══════════════════════════════════════════════ */
+function lobSetBlock(id){ lobBlock=id; renderLoB(); }
+function lobToggleTrade(id){
+  if(lobTradeFilter.has(id)){ if(lobTradeFilter.size>1) lobTradeFilter.delete(id); }
+  else lobTradeFilter.add(id);
+  renderLoB();
+}
+function lobResetTrades(){ lobTradeFilter=new Set(TRADES.map(t=>t.id)); renderLoB(); }
+
+function lobControlsHtml(){
+  const blockChips = BLOCKS.map(b=>{
+    const on = b.id===lobBlock;
+    return `<button class="chip${on?' chip-on':''}" onclick="lobSetBlock('${b.id}')">${on?'✓ ':''}${b.id}</button>`;
+  }).join('');
+  const tradeChips = TRADES.map(tr=>{
+    const on=lobTradeFilter.has(tr.id);
+    return `<button class="chip chip-trade${on?' chip-on':''}" style="--tc:${tr.color}" onclick="lobToggleTrade('${tr.id}')">${on?'✓ ':''}${tr.short}</button>`;
+  }).join('');
+  return `<div class="lps-ctrl-block">
+    <div class="lps-ctrl-row"><span class="lps-ctrl-label">Block</span>${blockChips}</div>
+    <div class="lps-ctrl-row"><span class="lps-ctrl-label">Trade</span>${tradeChips}<button class="chip chip-reset" onclick="lobResetTrades()">Reset trades</button></div>
+    <div class="lps-ctrl-row"><span class="lps-ctrl-label">Export</span><button class="pdf-btn" onclick="exportViewToPDF()">🖨 Export PDF</button></div>
+  </div>`;
+}
+
+function lobCountWaits(trades,scheds){
+  let n=0, days=0;
+  trades.forEach(tr=>{
+    const ti=TRADES.indexOf(tr);
+    Object.values(scheds[ti]).forEach(w=>{ if(w.waited){ n++; days+=w.waitDays; } });
+  });
+  return {n,days};
+}
+
+function lobChartSvg(bk,trades,scheds,cur,L){
+  const {ROW_H,COL_W,LEFT_M,TOP_M,chartW,chartH,xScale,yScale,totalWeeks,minStart}=L;
+
+  // Zebra row bands so each level's lane is visually distinct even before any line is drawn
+  let rowBands='';
+  for(let lvl=1; lvl<=bk.N; lvl++){
+    if(lvl%2===0){
+      const y=TOP_M+(bk.N-lvl)*ROW_H;
+      rowBands+=`<rect x="${LEFT_M}" y="${y}" width="${totalWeeks*COL_W}" height="${ROW_H}" fill="#f4f6fb"/>`;
+    }
+  }
+
+  // Week gridlines + date labels, spanning the whole process (minStart → chart end)
+  let gridlines='', weekLabels='';
+  const bottomY=TOP_M+bk.N*ROW_H;
+  const labelStep=totalWeeks>52?4:(totalWeeks>26?2:1);
+  for(let w=0; w<=totalWeeks; w++){
+    const d=add(minStart,w*7);
+    const x=LEFT_M+w*COL_W;
+    gridlines+=`<line x1="${x}" y1="${TOP_M}" x2="${x}" y2="${bottomY}" stroke="#e2e6f0" stroke-width="1"/>`;
+    if(w%labelStep===0){
+      weekLabels+=`<text x="${x}" y="${TOP_M-10}" font-size="10" font-family="monospace" fill="#6b7280" text-anchor="middle">${fmtS(d)}</text>`;
+    }
+  }
+  const todayX=xScale(TODAY);
+  gridlines+=`<line x1="${todayX}" y1="${TOP_M-6}" x2="${todayX}" y2="${bottomY}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="3,3"/>`;
+  weekLabels+=`<text x="${todayX}" y="${TOP_M-26}" font-size="10" font-weight="700" fill="#b45309" text-anchor="middle">TODAY</text>`;
+
+  // Level rows + labels — generously spaced (ROW_H px) so lines never crowd
+  let rowLines='', rowLabels='';
+  for(let lvl=1; lvl<=bk.N; lvl++){
+    const y=TOP_M+(bk.N-lvl)*ROW_H;
+    rowLines+=`<line x1="${LEFT_M}" y1="${y}" x2="${LEFT_M+totalWeeks*COL_W}" y2="${y}" stroke="#e2e6f0" stroke-width="1"/>`;
+    rowLabels+=`<text x="${LEFT_M-12}" y="${yScale(lvl)+4}" font-size="12" font-weight="700" font-family="monospace" fill="#1a1f36" text-anchor="end">L${lvl}</text>`;
+  }
+  rowLines+=`<line x1="${LEFT_M}" y1="${bottomY}" x2="${LEFT_M+totalWeeks*COL_W}" y2="${bottomY}" stroke="#c8cfe8" stroke-width="1.5"/>`;
+
+  // Trade lines: horizontal segment = duration on that level, diagonal = transition to the
+  // next level (dashed red = predecessor wait / start-stop, solid trade-color = normal move,
+  // light dotted grey = estimated — level already complete, no verified historical date)
+  let tradeLines='';
+  trades.forEach(tr=>{
+    const ti=TRADES.indexOf(tr);
+    const doneLvl=Math.min(cur[tr.id]||0,bk.N);
+    let prevPt=null;
+    for(let lvl=1; lvl<=bk.N; lvl++){
+      const w=scheds[ti][lvl];
+      if(!w) continue;
+      const x1=xScale(w.start), x2=xScale(w.end), y=yScale(lvl);
+      const estimated=w.estimated;
+      if(prevPt){
+        const dashed=w.waited;
+        const lineCol = estimated ? '#b8bfd1' : (dashed?'#dc2626':tr.color);
+        const dash = estimated ? '2,3' : (dashed?'5,4':'none');
+        const tip=`${tr.name}|L${lvl}|${bk.label}|${estimated?'~'+fmtS(w.start)+' (estimated)':fmtS(w.start)}|${estimated?'ESTIMATED (complete)':(dashed?'START-STOP WAIT':'TRANSITION')}|${lineCol}|${dashed&&!estimated?('Waited ~'+w.waitDays+' workdays for predecessor'):''}`;
+        tradeLines+=`<line x1="${prevPt.x}" y1="${prevPt.y}" x2="${x1}" y2="${y}" stroke="${lineCol}" stroke-width="${dashed&&!estimated?2.5:2}" stroke-dasharray="${dash}" data-tt="${tip}"/>`;
+        if(dashed && !estimated && w.waitDays>=2){
+          const midX=(prevPt.x+x1)/2, midY=(prevPt.y+y)/2;
+          tradeLines+=`<rect x="${midX-15}" y="${midY-9}" width="30" height="18" rx="4" fill="#dc2626" data-tt="${tip}"/>`;
+          tradeLines+=`<text x="${midX}" y="${midY+4}" font-size="10" font-weight="800" fill="#fff" text-anchor="middle" pointer-events="none">+${w.waitDays}d</text>`;
+        }
+      }
+      const barCol = estimated ? tr.light : tr.color;
+      const tip2=`${tr.name}|L${lvl}|${bk.label}|${estimated?'~'+fmtS(w.start)+' – ~'+fmtS(w.end)+' (estimated)':fmtS(w.start)+'–'+fmtS(w.end)}|${estimated?'COMPLETE (estimated dates)':'SCHEDULED'}|${tr.color}|`;
+      tradeLines+=`<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${barCol}" stroke-width="${estimated?4:5}" stroke-linecap="round" stroke-dasharray="${estimated?'1,3':'none'}" data-tt="${tip2}"/>`;
+      prevPt={x:x2,y};
+    }
+  });
+
+  // Crash markers — real sequence conflicts (from the same buffer logic as the Dashboard).
+  // Made deliberately loud and permanent (not hover-only): a translucent red band across
+  // the two conflicting level-rows, a thick connector line between them, a big circled "!",
+  // and a text label naming the two trades directly on the chart.
+  let crashMarkers='';
+  const shownIds=new Set(trades.map(t=>t.id));
+  const crashList=computeFlowRisk(bk).filter(r=>r.sev==='critical' && shownIds.has(r.currTr.id));
+  crashList.forEach(r=>{
+    const currLvlC=Math.min(r.currLvl,bk.N);
+    const prevLvlC=Math.min(Math.max(r.prevLvl,1),bk.N);
+    const yCurr=yScale(currLvlC);
+    const yPrev=yScale(prevLvlC);
+    const yTop=Math.min(yCurr,yPrev)-ROW_H/2, yBot=Math.max(yCurr,yPrev)+ROW_H/2;
+    const bandW=44;
+    const tip=`⛔ ${r.prevTr.name} \u2192 ${r.currTr.name}|L${r.currLvl}|${bk.label}|Buffer ${r.buffer}|CRASH — SEQUENCE CONFLICT|#dc2626|`;
+    // translucent conflict-zone band spanning the two colliding level rows
+    crashMarkers+=`<rect x="${todayX-bandW/2}" y="${yTop}" width="${bandW}" height="${yBot-yTop}" fill="#dc2626" fill-opacity="0.16" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="2,2" data-tt="${tip}"/>`;
+    // thick connector between the two conflicting points
+    crashMarkers+=`<line x1="${todayX}" y1="${yCurr}" x2="${todayX}" y2="${yPrev}" stroke="#dc2626" stroke-width="3" data-tt="${tip}"/>`;
+    // big marker circle with ! at the successor trade's level
+    crashMarkers+=`<circle cx="${todayX}" cy="${yCurr}" r="13" fill="#dc2626" stroke="#fff" stroke-width="2.5" data-tt="${tip}"/>`;
+    crashMarkers+=`<text x="${todayX}" y="${yCurr+5}" font-size="15" font-weight="900" fill="#fff" text-anchor="middle" pointer-events="none">!</text>`;
+    // permanent on-chart label (not hover-only) — placed to the right so it clears the axis
+    const labelY=(yCurr+yPrev)/2;
+    crashMarkers+=`<rect x="${todayX+bandW/2+6}" y="${labelY-11}" width="${8+7*(r.prevTr.short.length+r.currTr.short.length+4)}" height="22" rx="5" fill="#dc2626"/>`;
+    crashMarkers+=`<text x="${todayX+bandW/2+12}" y="${labelY+5}" font-size="12" font-weight="800" fill="#fff" pointer-events="none">⛔ ${r.prevTr.short} vs ${r.currTr.short}</text>`;
+  });
+
+  return `<svg width="${chartW}" height="${chartH}" viewBox="0 0 ${chartW} ${chartH}" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="${chartW}" height="${chartH}" fill="#ffffff"/>
+    ${rowBands}${rowLines}${gridlines}${rowLabels}${weekLabels}${tradeLines}${crashMarkers}
+  </svg>`;
+}
+
+function lobTradeListHtml(bk,trades,scheds,cur){
+  if(!trades.length) return '';
+  const critical=computeFlowRisk(bk).filter(r=>r.sev==='critical');
+  const rows=trades.map(tr=>{
+    const ti=TRADES.indexOf(tr);
+    const doneLvl=Math.min(cur[tr.id]||0,bk.N);
+    const waitLevels=Object.values(scheds[ti]).filter(w=>w.waited);
+    const waitDaysTotal=waitLevels.reduce((s,w)=>s+w.waitDays,0);
+    const nextWin=scheds[ti][doneLvl+1];
+    const asSuccessor=critical.find(r=>r.currTr.id===tr.id);
+    const asPredecessor=critical.find(r=>r.prevTr.id===tr.id);
+    let clashHtml='<span style="color:#15803d;font-weight:600">✓ none</span>', rowClass='';
+    if(asSuccessor){
+      clashHtml=`⛔ vs ${asSuccessor.prevTr.short} (caught up, buffer ${asSuccessor.buffer})`;
+      rowClass='dtbl-critical';
+    } else if(asPredecessor){
+      clashHtml=`⛔ vs ${asPredecessor.currTr.short} (being caught up to, buffer ${asPredecessor.buffer})`;
+      rowClass='dtbl-critical';
+    }
+    const waitCell = waitLevels.length
+      ? `${waitDaysTotal}wd <span style="color:var(--faint);font-weight:500">(${waitLevels.length} gap${waitLevels.length===1?'':'s'})</span>`
+      : 'none';
+    return `<tr class="${rowClass}">
+      <td><span class="trade-pill-solid" style="background:${tr.color}">${tr.name}</span></td>
+      <td class="dtbl-num">L${doneLvl}/${bk.N}</td>
+      <td>${nextWin?fmtS(nextWin.start)+' – '+fmtS(nextWin.end):'— complete'}</td>
+      <td class="dtbl-num" style="color:${waitLevels.length?'#dc2626':'#15803d'}">${waitCell}</td>
+      <td style="font-weight:700;color:${(asSuccessor||asPredecessor)?'#dc2626':'inherit'}">${clashHtml}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="chart-card">
+    <div class="chart-title">📋 Trade Summary — ${bk.label} <span class="cnt">${critical.length} clash${critical.length===1?'':'es'}</span></div>
+    <table class="dtbl">
+      <thead><tr><th style="width:26%">Trade</th><th style="width:11%">Current</th><th style="width:24%">Next Level Window</th><th style="width:18%">Start-Stop Wait (workdays)</th><th style="width:21%">Clash</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+function renderLoB(){
+  const takt=parseInt(document.getElementById('ctrl-takt').value)||7;
+  const bk=BLOCKS.find(b=>b.id===lobBlock)||BLOCKS[0];
+  const scheds=buildLoBSchedule(bk,takt);
+  const cur=CURRENT[bk.id]||{};
+  const allTrades=appTradesFor(bk);
+  const trades=allTrades.filter(tr=>lobTradeFilter.has(tr.id));
+
+  // Time extent: earliest L1 (estimated) start .. latest LN end, across shown trades —
+  // the whole process, not just from today. Capped so one outlier trade can't blow up the axis.
+  let minStart=TODAY, maxEnd=add(TODAY,42);
+  trades.forEach(tr=>{
+    const ti=TRADES.indexOf(tr);
+    for(let lvl=1; lvl<=bk.N; lvl++){
+      const w=scheds[ti][lvl];
+      if(!w) continue;
+      if(w.start<minStart) minStart=w.start;
+      if(w.end>maxEnd) maxEnd=w.end;
+    }
+  });
+  const CAP_WEEKS_PAST=130, CAP_WEEKS_FUTURE=78;
+  const earliestAllowed=add(TODAY,-CAP_WEEKS_PAST*7);
+  if(minStart<earliestAllowed) minStart=earliestAllowed;
+  minStart=sowk(minStart);
+  let totalWeeks=Math.min(Math.ceil(diff(minStart,maxEnd)/7)+2, CAP_WEEKS_PAST+CAP_WEEKS_FUTURE);
+  const chartEnd=add(minStart,totalWeeks*7);
+
+  const ROW_H=52, COL_W=60, LEFT_M=94, TOP_M=54, BOTTOM_M=26;
+  const chartW=LEFT_M+totalWeeks*COL_W+20;
+  const chartH=TOP_M+bk.N*ROW_H+BOTTOM_M;
+  const xScale=d=>LEFT_M+(diff(minStart,d)/7)*COL_W;
+  const yScale=lvl=>TOP_M+(bk.N-lvl)*ROW_H+ROW_H/2;
+
+  const svg=lobChartSvg(bk,trades,scheds,cur,{ROW_H,COL_W,LEFT_M,TOP_M,BOTTOM_M,chartW,chartH,xScale,yScale,totalWeeks,minStart});
+  const critical=computeFlowRisk(bk).filter(r=>r.sev==='critical'&&trades.some(t=>t.id===r.currTr.id));
+  const waitStats=lobCountWaits(trades,scheds);
+
+  const html=`<div class="lps-wrap">
+    ${lobControlsHtml()}
+    <div class="section-heading">📈 LINE OF BALANCE — ${bk.label} (${bk.sub})</div>
+    <div class="stat-row">
+      <div class="stat-card stat-blue"><span class="n">${trades.length}</span><span class="l">📋 Trades shown</span></div>
+      <div class="stat-card stat-red"><span class="n">${critical.length}</span><span class="l">⛔ Crashing (line conflicts)</span></div>
+      <div class="stat-card stat-amber"><span class="n">${waitStats.days}d</span><span class="l">⏸ Start-stop wait (${waitStats.n} gap${waitStats.n===1?'':'s'})</span></div>
+    </div>
+    ${statusLegendHtml()}
+    <div class="chart-card">
+      <div class="chart-title">📈 Time-Location Chart <span class="cnt">L1–L${bk.N} · full process · ${totalWeeks}w</span></div>
+      <div class="lob-scroll">${svg}</div>
+      <div class="chart-legend">
+        <span class="lg"><span class="sw" style="background:#dc2626"></span>⛔ Crash point (sequence conflict)</span>
+        <span class="lg" style="display:inline-flex;align-items:center;gap:5px"><svg width="18" height="4"><line x1="0" y1="2" x2="18" y2="2" stroke="#dc2626" stroke-width="2" stroke-dasharray="4,3"/></svg>Start-stop wait</span>
+        <span class="lg" style="display:inline-flex;align-items:center;gap:5px"><svg width="18" height="4"><line x1="0" y1="2" x2="18" y2="2" stroke="#9ca3af" stroke-width="2" stroke-dasharray="2,3"/></svg>Estimated (already complete — not individually dated in source data)</span>
+      </div>
+    </div>
+    ${lobTradeListHtml(bk,trades,scheds,cur)}
+  </div>`;
+
+  document.getElementById('main-wrap').innerHTML=html;
+  document.getElementById('info-bar').innerHTML=`
+    <div class="info-item">X = calendar time (today → ${fmtS(chartEnd)}) · Y = level (L1 bottom → L${bk.N} top)</div>
+    <div class="info-item">Only today-onward is dated — completed levels aren't individually dated in the source data, so each line starts at the trade's current level</div>
+    <div class="info-item">⛔ = crashing: a later trade's line has caught up to/passed an earlier trade's — a real sequence conflict, chase it now</div>
+  `;
+}
+
 /* ═══════════ INFO BAR ═══════════ */
 function updateInfoBar(bk,endDate,takt,lead,done,total,pct){
   const daysLeft=diff(TODAY,endDate);
@@ -2159,6 +2478,7 @@ function exportViewToPDF(){
     data:      `Site Progress Data - ${activeBlock} - ${todayStr}`,
     lookahead: `Last Planner Look-Ahead - ${todayStr}`,
     dashboard: `Project Dashboard - ${todayStr}`,
+    lob:       `Line of Balance - ${lobBlock} - ${todayStr}`,
   };
   const printHeadings = {
     matrix:    `📊 Trade Matrix — ${activeBlock}`,
@@ -2166,6 +2486,7 @@ function exportViewToPDF(){
     data:      `📋 Site Progress Data — ${activeBlock}`,
     lookahead: `🗓️ Last Planner System — 6-Week Look-Ahead`,
     dashboard: `🚦 Project Dashboard`,
+    lob:       `📈 Line of Balance — ${lobBlock}`,
   };
   const newTitle = (titles[activeView] || 'Takt Report - ' + todayStr).replace(/[\\/:*?"<>|]/g,'-');
   const pt = document.getElementById('print-title');

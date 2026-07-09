@@ -260,6 +260,7 @@ table.dt tr.dt-grp td{background:#eef1f8;padding:4px 12px;font-size:9px;font-wei
 .stat-green{background:linear-gradient(135deg,#22c55e,#15803d);color:#fff}
 .stat-red{background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff}
 .stat-amber{background:linear-gradient(135deg,#f59e0b,#b45309);color:#fff}
+.stat-teal{background:linear-gradient(135deg,#0e9f8e,#0f766e);color:#fff}
 .stat-card{box-shadow:0 3px 10px rgba(0,0,0,.12)}
 .stat-card .n,.stat-card .l{color:inherit}
 
@@ -305,12 +306,14 @@ table.dash-overview tbody tr:hover td{background:var(--surface2)}
 .ov-badge-delay{background:#fee2e2;color:#991b1b}
 .ov-badge-risk{background:#fef3c7;color:#92400e}
 
-.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:18px}
+.dash-grid-scroll{overflow-x:auto;padding-bottom:8px}
+.dash-grid{display:grid;grid-template-columns:repeat(3,minmax(460px,1fr));gap:18px}
 .dash-block-spacer{grid-column:1/-1;height:40px;border-bottom:2px dashed var(--border2);margin-bottom:20px}
 .dash-card{background:var(--surface);border:1px solid var(--border2);border-top:6px solid #1e40af;border-bottom:6px solid #1e40af;border-radius:14px;padding:0;display:flex;flex-direction:column;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden}
 .dash-card-topstrip{height:6px;width:100%}
 .dash-trade-strip{display:flex;height:10px;width:100%}
 .dash-trade-strip>div{height:10px;transition:width .3s}
+.dash-readiness-badge{display:inline-block;font-size:13px;font-weight:700;padding:6px 12px;border-radius:8px}
 .dash-card-critical{border-left:2px solid #dc2626;border-right:2px solid #dc2626;border-top:6px solid #dc2626;border-bottom:6px solid #dc2626;box-shadow:0 4px 16px rgba(220,38,38,.18)}
 .crit-banner{background:linear-gradient(90deg,#dc2626,#ef4444);color:#fff;font-size:16px;font-weight:800;letter-spacing:.2px;padding:12px 20px;display:flex;align-items:center;gap:9px;animation:critPulse 2.2s ease-in-out infinite}
 @keyframes critPulse{0%,100%{opacity:1}50%{opacity:.82}}
@@ -335,12 +338,13 @@ table.dash-overview tbody tr:hover td{background:var(--surface2)}
 .dash-subpanel-risk-crit .dash-subpanel-hdr{background:rgba(220,38,38,.14);color:#dc2626}
 .dash-subpanel-cnt{margin-left:auto;font-family:var(--mono);background:rgba(0,0,0,.08);padding:2px 10px;border-radius:9px;font-size:12.5px}
 .dash-subpanel-body{padding:10px 12px}
-table.dtbl{width:100%;border-collapse:collapse}
+table.dtbl{width:100%;border-collapse:collapse;table-layout:fixed}
 table.dtbl thead th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700;padding:0 8px 8px;border-bottom:1px solid var(--border)}
 table.dtbl tbody td{padding:8px;font-size:13.5px;border-bottom:1px solid var(--border);vertical-align:top}
 table.dtbl tbody tr:last-child td{border-bottom:none}
 table.dtbl .dtbl-num{font-family:var(--mono);font-weight:700;white-space:nowrap}
-table.dtbl .dtbl-reason{font-size:12px;color:var(--muted);line-height:1.5}
+table.dtbl .dtbl-reason{font-size:15px;color:var(--text);font-weight:500;line-height:1.55;white-space:normal;word-wrap:break-word;overflow-wrap:break-word}
+table.dtbl tbody td{white-space:normal;word-wrap:break-word;overflow-wrap:break-word}
 table.dtbl tr.dtbl-critical td{background:rgba(220,38,38,.07)}
 table.dtbl tr.dtbl-warning td{background:rgba(180,83,9,.06)}
 table.dash-mini{width:100%;border-collapse:collapse;margin-top:6px}
@@ -411,6 +415,7 @@ table.wk-table tbody tr:last-child td{border-bottom:none}
 
 /* ── PRINT / PDF EXPORT ── */
 @media print{
+  *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}
   body{background:#fff}
   .topbar,.ctrl-wrap,.edit-hint-bar,.lps-ctrl-block,.data-toolbar .export-btn,
   .data-toolbar .import-btn,.data-toolbar .pdf-btn,.data-toolbar .reset-btn,
@@ -419,10 +424,15 @@ table.wk-table tbody tr:last-child td{border-bottom:none}
   .scroll-outer,.data-wrap{max-height:none !important;overflow:visible !important;box-shadow:none !important;border:none !important}
   .main{padding:0}
   table.mx thead,table.fl thead{position:static !important}
-  .dash-card,.chart-card,.lps-ctrl-block,table.lps-table,table.dash-overview{box-shadow:none !important;break-inside:avoid}
+  .dash-card,.chart-card,.lps-ctrl-block,table.lps-table,table.dash-overview,.lps-week-group,.stat-card{box-shadow:none !important;break-inside:avoid}
   .dash-grid{display:block !important}
+  .dash-grid-scroll{overflow:visible !important}
   .dash-card{margin-bottom:16px}
+  .crit-banner{animation:none !important}
+  #print-title{display:block !important}
 }
+#print-title{display:none;font-size:20px;font-weight:800;color:#1a1f36;padding:0 0 14px;border-bottom:2px solid #1e40af;margin-bottom:16px}
+#print-title .pt-date{font-size:12px;font-weight:500;color:#6b7280;font-family:var(--mono);margin-top:4px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -489,6 +499,7 @@ table.wk-table tbody tr:last-child td{border-bottom:none}
 
 <!-- MATRIX / FLOW CONTAINER -->
 <div class="main">
+  <div id="print-title"></div>
   <div id="edit-hint-bar" style="font-size:10px;color:var(--muted);padding:0 0 6px;display:none">
     ✎ <strong>Click any cell</strong> to edit progress for that trade — a panel will open on the right
   </div>
@@ -1416,6 +1427,93 @@ function computeFlowRisk(bk){
   return risks;
 }
 
+// Look-Ahead Readiness % for a block, scoped to a specific week range (default weeks 4–6 —
+// the part of the 6-week window that's still in the "should/can" planning stage, as opposed
+// to week 1 which should already be committed). Readiness = share of that block's upcoming
+// tasks in the window that are unconstrained (predecessor trade has already cleared the level).
+function computeBlockReadiness(bk,weekMin,weekMax){
+  weekMin=weekMin||4; weekMax=weekMax||6;
+  const takt=parseInt(document.getElementById('ctrl-takt').value)||7;
+  const todayWk=sowk(TODAY);
+  const scheds=buildForwardSchedule(bk,takt);
+  const cur=CURRENT[bk.id]||{};
+  const trades=appTradesFor(bk);
+  let total=0, ready=0;
+  trades.forEach((tr,idxInApp)=>{
+    const ti=TRADES.indexOf(tr);
+    const doneLvl=Math.min(cur[tr.id]||0,bk.N);
+    for(let lvl=doneLvl+1; lvl<=bk.N; lvl++){
+      const win=scheds[ti][lvl];
+      if(!win) continue;
+      const weekNum=Math.floor(diff(todayWk,sowk(win.start))/7)+1;
+      if(weekNum<weekMin||weekMax<weekNum) continue;
+      total++;
+      let constrained=false;
+      if(idxInApp>0){
+        const predTr=trades[idxInApp-1];
+        if(!STALE_TRADES.has(predTr.id)){
+          const predDone=Math.min(cur[predTr.id]||0,bk.N);
+          if(predDone<lvl) constrained=true;
+        }
+      }
+      if(!constrained) ready++;
+    }
+  });
+  const pct = total? Math.round(ready/total*100) : 100; // nothing scheduled in window = nothing blocking it
+  return {total,ready,pct};
+}
+
+// Trade Handoff Readiness Score (1–5) — how ready each trade is to receive its handoff and
+// keep moving over the next 6 weeks, blending two signals already computed elsewhere:
+//  (a) buffer vs. its predecessor (same convention as computeFlowRisk, but for EVERY trade,
+//      not just the risky ones)
+//  (b) the share of its own next-6-weeks tasks that are unconstrained
+// Score = 1 (poor — real conflict, work will likely stall) to 5 (excellent — healthy buffer,
+// nothing blocking the next six weeks of work for this trade).
+function computeHandoffReadiness(bk){
+  const takt=parseInt(document.getElementById('ctrl-takt').value)||7;
+  const todayWk=sowk(TODAY);
+  const scheds=buildForwardSchedule(bk,takt);
+  const cur=CURRENT[bk.id]||{};
+  const freshTrades=freshTradesFor(bk);
+  const active=freshTrades.map(tr=>({tr,actual:Math.min(cur[tr.id]||0,bk.N),lvl:Math.min((cur[tr.id]||0)+1,bk.N)}));
+  const allTrades=appTradesFor(bk);
+
+  return freshTrades.map((tr,idx)=>{
+    const ti=TRADES.indexOf(tr);
+    const doneLvl=Math.min(cur[tr.id]||0,bk.N);
+    const idxInAll=allTrades.indexOf(tr);
+
+    let total=0, ready=0;
+    for(let lvl=doneLvl+1; lvl<=bk.N; lvl++){
+      const win=scheds[ti][lvl];
+      if(!win) continue;
+      const weekNum=Math.floor(diff(todayWk,sowk(win.start))/7)+1;
+      if(weekNum<1||weekNum>6) continue;
+      total++;
+      let constrained=false;
+      if(idxInAll>0){
+        const predTr=allTrades[idxInAll-1];
+        if(!STALE_TRADES.has(predTr.id)){
+          const predDone=Math.min(cur[predTr.id]||0,bk.N);
+          if(predDone<lvl) constrained=true;
+        }
+      }
+      if(!constrained) ready++;
+    }
+    const readyPct = total? ready/total : 1;
+
+    let buffer=null;
+    if(idx>0 && active[idx-1].actual>0){
+      buffer = active[idx-1].lvl - active[idx].lvl;
+    }
+    const bufferNorm = buffer===null ? 1 : Math.max(0,Math.min(1,(buffer+2)/6));
+    const combined = buffer===null ? readyPct : (bufferNorm+readyPct)/2;
+    const score = Math.max(1,Math.min(5,Math.round(1+combined*4)));
+    return {tr,buffer,readyPct:Math.round(readyPct*100),score,total,ready};
+  });
+}
+
 /* ═══════════════════════════════════════════════
    LOOK-AHEAD (LPS) VIEW
    6-week rolling look-ahead across all trades/blocks, built off buildForwardSchedule() —
@@ -1453,8 +1551,10 @@ function collectLookaheadTasks(){
         let constrained=false, constraintNote='';
         if(idxInApp>0){
           const predTr=trades[idxInApp-1];
-          const predDone=Math.min(cur[predTr.id]||0,bk.N);
-          if(predDone<lvl){ constrained=true; constraintNote=`waiting on ${predTr.name} to clear L${lvl}`; }
+          if(!STALE_TRADES.has(predTr.id)){
+            const predDone=Math.min(cur[predTr.id]||0,bk.N);
+            if(predDone<lvl){ constrained=true; constraintNote=`waiting on ${predTr.name} to clear L${lvl}`; }
+          }
         }
         const isOverdue = win.end<TODAY;
         tasks.push({bk,tr,lvl,win,weekNum,constrained,constraintNote,isOverdue});
@@ -1563,6 +1663,57 @@ function weeklyHistogramHtml(byWeek,todayWk){
   </div>`;
 }
 
+function scoreColor(score){
+  return score>=5?'#0f766e':score===4?'#15803d':score===3?'#1e40af':score===2?'#b45309':'#dc2626';
+}
+function scoreStars(score){
+  return '★'.repeat(score)+'☆'.repeat(5-score);
+}
+function scoreLabel(score){
+  return {5:'Excellent',4:'Good',3:'OK',2:'Weak',1:'Poor'}[score]||'';
+}
+
+function handoffReadinessTableHtml(){
+  const blocksToUse = BLOCKS.filter(b=>lpsBlockFilter.has(b.id));
+  let rows=[];
+  blocksToUse.forEach(bk=>{
+    computeHandoffReadiness(bk).forEach(h=>{
+      if(!lpsTradeFilter.has(h.tr.id)) return;
+      rows.push(Object.assign({bk},h));
+    });
+  });
+  if(!rows.length){
+    return `<div class="chart-card"><div class="chart-title">🤝 Trade Handoff Readiness Score</div><div class="dash-empty">No trades match the current filters.</div></div>`;
+  }
+  rows.sort((a,b)=> a.score-b.score || a.bk.label.localeCompare(b.bk.label));
+  const trRows = rows.map(r=>{
+    const col=scoreColor(r.score);
+    const bufferTxt = r.buffer===null ? '—' : r.buffer;
+    const readyTxt = r.total ? `${r.readyPct}% (${r.ready}/${r.total})` : '— none scheduled';
+    return `<tr class="${r.score<=2?'dtbl-critical':r.score===3?'dtbl-warning':''}">
+      <td><strong>${r.bk.label}</strong> <span style="color:var(--faint);font-size:11px">(${r.bk.sub})</span></td>
+      <td><span class="trade-pill-solid" style="background:${r.tr.color}">${r.tr.name}</span></td>
+      <td class="dtbl-num">${bufferTxt}</td>
+      <td class="dtbl-num">${readyTxt}</td>
+      <td><span style="color:${col};font-weight:800;font-size:16px;letter-spacing:1px">${scoreStars(r.score)}</span> <span style="color:${col};font-weight:800">${r.score}/5</span> <span style="color:${col};font-size:11px">${scoreLabel(r.score)}</span></td>
+    </tr>`;
+  }).join('');
+  return `<div class="chart-card">
+    <div class="chart-title">🤝 Trade Handoff Readiness Score <span class="cnt">${rows.length} trades</span></div>
+    <table class="dtbl">
+      <thead><tr><th style="width:15%">Block</th><th style="width:24%">Trade</th><th style="width:12%">Buffer</th><th style="width:24%">Ready (next 6w)</th><th style="width:25%">Score (1–5)</th></tr></thead>
+      <tbody>${trRows}</tbody>
+    </table>
+    <div class="chart-legend">
+      <span class="lg"><span class="sw" style="background:#0f766e"></span>5 Excellent</span>
+      <span class="lg"><span class="sw" style="background:#15803d"></span>4 Good</span>
+      <span class="lg"><span class="sw" style="background:#1e40af"></span>3 OK</span>
+      <span class="lg"><span class="sw" style="background:#b45309"></span>2 Weak</span>
+      <span class="lg"><span class="sw" style="background:#dc2626"></span>1 Poor</span>
+    </div>
+  </div>`;
+}
+
 function renderLookahead(){
   const tasks=collectLookaheadTasks();
   const constrainedCount=tasks.filter(t=>t.constrained).length;
@@ -1603,6 +1754,7 @@ function renderLookahead(){
     }
     html+=`</div>`;
   }
+  html+=handoffReadinessTableHtml();
   html+=`</div>`;
 
   document.getElementById('main-wrap').innerHTML=html;
@@ -1632,7 +1784,7 @@ function delayBarChartHtml(delays){
     <td class="dtbl-num">${Math.abs(d.delayWeeks)>=0.5?`~${d.delayWeeks}w`:'—'}</td>
   </tr>`).join('');
   return `<table class="dtbl">
-    <thead><tr><th>Trade</th><th>Behind by</th><th>~Weeks</th></tr></thead>
+    <thead><tr><th style="width:50%">Trade</th><th style="width:25%">Behind by</th><th style="width:25%">~Weeks</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
@@ -1650,12 +1802,12 @@ function flowGaugeChartHtml(flowRisks){
     </tr>`;
   }).join('');
   return `<table class="dtbl">
-    <thead><tr><th>From → To</th><th>Buffer</th><th>Severity</th><th>Recommendation</th></tr></thead>
+    <thead><tr><th style="width:22%">From → To</th><th style="width:11%">Buffer</th><th style="width:20%">Severity</th><th style="width:47%">Recommendation</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
 
-function dashBlockCardHtml(bk,pct,doneC,totalC,delays,flowRisks){
+function dashBlockCardHtml(bk,pct,doneC,totalC,delays,flowRisks,readiness){
   const pctColor = pct>=80?'#15803d':pct>=50?'#1e40af':pct>=20?'#b45309':'#dc2626';
   const critCount = flowRisks.filter(r=>r.sev==='critical').length;
   const critBanner = critCount ? `<div class="crit-banner">⛔ ${critCount} SEQUENCE CONFLICT${critCount>1?'S':''} — needs immediate attention</div>` : '';
@@ -1668,6 +1820,10 @@ function dashBlockCardHtml(bk,pct,doneC,totalC,delays,flowRisks){
     const w=(done/bk.N/trades.length*100);
     return `<div style="width:${w}%;background:${tr.color}" title="${tr.name}: L${done}/${bk.N}"></div>`;
   }).join('');
+  const rCol = readiness.pct>=80?'#0f766e':readiness.pct>=50?'#1e40af':readiness.pct>=25?'#b45309':'#dc2626';
+  const readinessBadge = readiness.total
+    ? `<span class="dash-readiness-badge" style="background:${rCol}22;color:${rCol}">🎯 W4-6 Ready: ${readiness.pct}% (${readiness.ready}/${readiness.total})</span>`
+    : `<span class="dash-readiness-badge" style="background:var(--surface2);color:var(--muted)">🎯 W4-6: nothing scheduled</span>`;
   return `<div class="dash-card${critCount?' dash-card-critical':''}">
     ${critBanner}
     <div class="dash-card-topstrip" style="background:${pctColor}"></div>
@@ -1679,6 +1835,7 @@ function dashBlockCardHtml(bk,pct,doneC,totalC,delays,flowRisks){
       <div class="dash-ring" style="--pct:${pct};--col:${pctColor}"><span>${pct}%</span></div>
     </div>
     <div class="dash-trade-strip">${stripSegs}</div>
+    <div style="padding:10px 18px 0">${readinessBadge}</div>
     <div class="dash-card-body">
       <div class="dash-subpanel dash-subpanel-delay">
         <div class="dash-subpanel-hdr">🕐 DELAYS <span class="dash-subpanel-cnt">${delays.length}</span></div>
@@ -1692,14 +1849,19 @@ function dashBlockCardHtml(bk,pct,doneC,totalC,delays,flowRisks){
   </div>`;
 }
 
-function dashOverviewRowHtml(bk,pct,delays,flowRisks){
+function dashOverviewRowHtml(bk,pct,delays,flowRisks,readiness){
   const pctColor = pct>=80?'#15803d':pct>=50?'#1e40af':pct>=20?'#b45309':'#dc2626';
   const topDelay = delays[0] ? `<span class="ov-badge ov-badge-delay">🕐 ${delays[0].tr.short} −${delays[0].delayLevels} lvl</span>` : `<span class="ov-badge ov-badge-none">✓ On pace</span>`;
   const worstRisk = flowRisks.find(r=>r.sev==='critical') || flowRisks[0];
   const topRisk = worstRisk ? `<span class="ov-badge ${worstRisk.sev==='critical'?'ov-badge-delay':'ov-badge-risk'}">${worstRisk.sev==='critical'?'⛔':'⚠️'} ${worstRisk.prevTr.short}→${worstRisk.currTr.short}</span>` : `<span class="ov-badge ov-badge-none">✓ Healthy</span>`;
+  const rCol = readiness.pct>=80?'#15803d':readiness.pct>=50?'#1e40af':readiness.pct>=25?'#b45309':'#dc2626';
+  const readinessCell = readiness.total
+    ? `<span class="wk-dot" style="background:${rCol}"></span><span style="font-family:var(--mono);font-weight:800;color:${rCol}">${readiness.pct}%</span> <span style="color:var(--faint);font-size:11px">(${readiness.ready}/${readiness.total})</span>`
+    : `<span class="ov-badge ov-badge-none">— none scheduled</span>`;
   return `<tr>
     <td class="ov-block">${bk.label} <span style="color:var(--faint);font-weight:400;font-size:13.5px">(${bk.sub})</span></td>
     <td><div class="ov-progress-wrap"><div class="ov-progress-track"><div class="ov-progress-fill" style="width:${pct}%;background:${pctColor}"></div></div><span class="ov-progress-pct" style="color:${pctColor}">${pct}%</span></div></td>
+    <td>${readinessCell}</td>
     <td>${topDelay}</td>
     <td>${topRisk}</td>
   </tr>`;
@@ -1737,6 +1899,7 @@ function renderDashboard(){
   const takt=parseInt(document.getElementById('ctrl-takt').value)||7;
 
   let siteTotalC=0, siteDoneC=0, allRisks=0, allDelayed=0, allCritical=0;
+  let readyTotal=0, readySum=0;
   let cards='', overviewRows='', blockStats=[];
   BLOCKS.forEach(bk=>{
     const trades=appTradesFor(bk);
@@ -1748,22 +1911,26 @@ function renderDashboard(){
 
     const delays=computeBlockDelays(bk,takt).filter(d=>d.delayLevels>0).sort((a,b)=>b.delayLevels-a.delayLevels).slice(0,5);
     const flowRisks=computeFlowRisk(bk);
+    const readiness=computeBlockReadiness(bk,4,6);
     allRisks+=flowRisks.length;
     allDelayed+=delays.length;
     allCritical+=flowRisks.filter(r=>r.sev==='critical').length;
+    readyTotal+=readiness.total; readySum+=readiness.ready;
 
     blockStats.push({bk,pct});
-    overviewRows+=dashOverviewRowHtml(bk,pct,delays,flowRisks);
-    cards+=`<div class="dash-block-spacer"></div><div class="dash-block-spacer"></div>`+dashBlockCardHtml(bk,pct,doneC,totalC,delays,flowRisks);
+    overviewRows+=dashOverviewRowHtml(bk,pct,delays,flowRisks,readiness);
+    cards+=`<div class="dash-block-spacer"></div><div class="dash-block-spacer"></div>`+dashBlockCardHtml(bk,pct,doneC,totalC,delays,flowRisks,readiness);
   });
 
   const sitePct = siteTotalC? Math.round(siteDoneC/siteTotalC*100) : 0;
+  const siteReadyPct = readyTotal? Math.round(readySum/readyTotal*100) : 100;
 
   let html=`<div class="lps-wrap">
     <div class="lps-ctrl-row" style="margin-bottom:14px"><button class="export-btn" onclick="exportDashboard()">⬇ Export Dashboard Report (.xlsx)</button><button class="pdf-btn" onclick="exportViewToPDF()">🖨 Export PDF</button></div>
     <div class="section-heading">🎯 EXECUTIVE OVERVIEW</div>
     <div class="stat-row dash-top">
       <div class="stat-card stat-blue"><span class="n">${sitePct}%</span><span class="l">📈 Site-wide progress</span></div>
+      <div class="stat-card stat-teal"><span class="n">${siteReadyPct}%</span><span class="l">🎯 Look-ahead ready (W4-6)</span></div>
       <div class="stat-card stat-amber"><span class="n">${allDelayed}</span><span class="l">🕐 Delayed trades flagged</span></div>
       <div class="stat-card stat-red"><span class="n">${allCritical}</span><span class="l">⛔ Sequence conflicts</span></div>
       <div class="stat-card stat-green"><span class="n">${allRisks-allCritical}</span><span class="l">🛡️ Buffer warnings</span></div>
@@ -1772,11 +1939,11 @@ function renderDashboard(){
     ${blockCompareChartHtml(blockStats)}
     <div class="dash-overview-wrap">
       <table class="dash-overview">
-        <thead><tr><th>Block</th><th>Progress</th><th>Top delay</th><th>Top flow risk</th></tr></thead>
+        <thead><tr><th>Block</th><th>Progress</th><th>Look-Ahead Ready (W4-6)</th><th>Top delay</th><th>Top flow risk</th></tr></thead>
         <tbody>${overviewRows}</tbody>
       </table>
     </div>
-    <div class="dash-grid">${cards}</div>
+    <div class="dash-grid-scroll"><div class="dash-grid">${cards}</div></div>
   </div>`;
 
   document.getElementById('main-wrap').innerHTML=html;
@@ -1784,6 +1951,7 @@ function renderDashboard(){
   document.getElementById('info-bar').innerHTML=`
     <div class="info-item">Delay = expected level (front-runner trade's level, minus 1 per trade-step back) minus actual level done</div>
     <div class="info-item">Flow buffer = predecessor trade's active level minus successor's — ≤1 level flags stacking risk</div>
+    <div class="info-item">Look-Ahead Ready (W4-6) = share of that block's tasks landing in weeks 4–6 that aren't waiting on a predecessor trade</div>
   `;
 }
 
@@ -1957,6 +2125,19 @@ function exportLookahead(){
   wsConstrained['!cols']=[{wch:9},{wch:22},{wch:7},{wch:11},{wch:11},{wch:45}];
   XLSX.utils.book_append_sheet(wb,wsConstrained,'Constraints (PPC Chase List)');
 
+  // ── Sheet 4: Trade Handoff Readiness Score ──
+  const handoffRows=[['Block','Trade','Buffer vs Predecessor','Ready Tasks (next 6w)','Total Tasks (next 6w)','Ready %','Score (1-5)','Rating']];
+  BLOCKS.filter(b=>lpsBlockFilter.has(b.id)).forEach(bk=>{
+    computeHandoffReadiness(bk).forEach(h=>{
+      if(!lpsTradeFilter.has(h.tr.id)) return;
+      handoffRows.push([bk.label,h.tr.name,h.buffer===null?'—':h.buffer,h.ready,h.total,h.total?h.readyPct+'%':'—',h.score,scoreLabel(h.score)]);
+    });
+  });
+  const wsHandoff=XLSX.utils.aoa_to_sheet(handoffRows);
+  wsHandoff['!cols']=[{wch:9},{wch:22},{wch:18},{wch:16},{wch:16},{wch:10},{wch:11},{wch:11}];
+  wsHandoff['!freeze']={xSplit:0,ySplit:1};
+  XLSX.utils.book_append_sheet(wb,wsHandoff,'Trade Handoff Readiness');
+
   const dateStamp=new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb,`LPS_LookAhead_${dateStamp}.xlsx`);
 }
@@ -1979,9 +2160,63 @@ function exportViewToPDF(){
     lookahead: `Last Planner Look-Ahead - ${todayStr}`,
     dashboard: `Project Dashboard - ${todayStr}`,
   };
+  const printHeadings = {
+    matrix:    `📊 Trade Matrix — ${activeBlock}`,
+    flow:      `🏢 Trade Flow by Level — ${activeBlock}`,
+    data:      `📋 Site Progress Data — ${activeBlock}`,
+    lookahead: `🗓️ Last Planner System — 6-Week Look-Ahead`,
+    dashboard: `🚦 Project Dashboard`,
+  };
+  const newTitle = (titles[activeView] || 'Takt Report - ' + todayStr).replace(/[\\/:*?"<>|]/g,'-');
+  const pt = document.getElementById('print-title');
+  if(pt) pt.innerHTML = `${printHeadings[activeView]||'Takt Report'}<div class="pt-date">Generated ${todayStr}</div>`;
+
+  // window.print() is commonly blocked (silently, no error) when this page is running inside
+  // a sandboxed iframe — e.g. an embedded artifact preview. Detect that case and fall back to
+  // opening the current document in a fresh, unsandboxed tab, which CAN print. Direct
+  // window.print() is tried first since it's the smoothest path when it's actually allowed
+  // (i.e. the file was opened directly in its own browser tab).
   const prevTitle = document.title;
-  document.title = (titles[activeView] || 'Takt Report - ' + todayStr).replace(/[\\/:*?"<>|]/g,'-');
-  window.print();
+  document.title = newTitle;
+  let usedFallback = false;
+  const inIframe = (function(){ try { return window.self !== window.top; } catch(e){ return true; } })();
+
+  function openFreshTabAndPrint(){
+    const savedView=activeView, savedBlock=activeBlock;
+    try{
+      const w = window.open('', '_blank');
+      if(!w){
+        alert('Your browser blocked the print tab from opening (pop-up blocker). Please allow pop-ups for this page, or download the file and open it directly in a browser tab, then use its Print / Ctrl+P.');
+        return;
+      }
+      w.document.open();
+      w.document.write('<!DOCTYPE html>'+document.documentElement.outerHTML);
+      w.document.close();
+      w.document.title = newTitle;
+      setTimeout(()=>{
+        try{
+          // Match the new tab to the same tab/block being exported, not its default view
+          if(typeof w.switchView==='function'){
+            w.activeBlock=savedBlock;
+            w.switchView(savedView);
+          }
+          w.focus();
+          setTimeout(()=>{ w.print(); }, 350);
+        }
+        catch(e){ alert('Could not open the print dialog automatically. In the new tab that just opened, please use Print (Ctrl/Cmd+P) and choose "Save as PDF".'); }
+      }, 500);
+    }catch(e){
+      alert('PDF export needs this page open in its own browser tab (not the embedded preview). Please download the file and open it directly, then click Export PDF again.');
+    }
+  }
+
+  if(inIframe){
+    usedFallback = true;
+    openFreshTabAndPrint();
+  } else {
+    try{ window.print(); }
+    catch(e){ usedFallback = true; openFreshTabAndPrint(); }
+  }
   setTimeout(()=>{ document.title = prevTitle; }, 800);
 }
 
@@ -1993,7 +2228,7 @@ function exportDashboard(){
   const wb=XLSX.utils.book_new();
 
   // ── Sheet 1: Block overview ──
-  const overviewRows=[['Block','Sub-contractor','N (levels)','Level-cells Done','Level-cells Total','Progress %','Top Delay (trade)','Top Delay (levels behind)','Worst Flow Risk','Flow Risk Severity']];
+  const overviewRows=[['Block','Sub-contractor','N (levels)','Level-cells Done','Level-cells Total','Progress %','Look-Ahead Ready % (W4-6)','Top Delay (trade)','Top Delay (levels behind)','Worst Flow Risk','Flow Risk Severity']];
   let siteTotalC=0, siteDoneC=0;
   const perBlock=[];
   BLOCKS.forEach(bk=>{
@@ -2006,10 +2241,12 @@ function exportDashboard(){
 
     const delays=computeBlockDelays(bk,takt).filter(d=>d.delayLevels>0).sort((a,b)=>b.delayLevels-a.delayLevels).slice(0,5);
     const flowRisks=computeFlowRisk(bk);
+    const readiness=computeBlockReadiness(bk,4,6);
     const worst=flowRisks.find(r=>r.sev==='critical')||flowRisks[0];
 
     overviewRows.push([
       bk.label, bk.sub, bk.N, doneC, totalC, pct+'%',
+      readiness.total?readiness.pct+'%':'—',
       delays[0]?delays[0].tr.name:'—',
       delays[0]?delays[0].delayLevels:0,
       worst?(worst.prevTr.name+' \u2192 '+worst.currTr.name):'—',
@@ -2019,9 +2256,9 @@ function exportDashboard(){
   });
   const sitePct=siteTotalC?Math.round(siteDoneC/siteTotalC*100):0;
   overviewRows.push([]);
-  overviewRows.push(['SITE-WIDE','','','',siteTotalC,sitePct+'%','','','','']);
+  overviewRows.push(['SITE-WIDE','','','',siteTotalC,sitePct+'%','','','','','']);
   const wsOverview=XLSX.utils.aoa_to_sheet(overviewRows);
-  wsOverview['!cols']=[{wch:9},{wch:8},{wch:11},{wch:15},{wch:15},{wch:11},{wch:20},{wch:22},{wch:30},{wch:14}];
+  wsOverview['!cols']=[{wch:9},{wch:8},{wch:11},{wch:15},{wch:15},{wch:11},{wch:15},{wch:20},{wch:22},{wch:30},{wch:14}];
   wsOverview['!freeze']={xSplit:0,ySplit:1};
   XLSX.utils.book_append_sheet(wb,wsOverview,'Dashboard Overview');
 
@@ -2050,6 +2287,18 @@ function exportDashboard(){
   wsRisks['!cols']=[{wch:9},{wch:18},{wch:11},{wch:18},{wch:11},{wch:14},{wch:11},{wch:60}];
   wsRisks['!freeze']={xSplit:0,ySplit:1};
   XLSX.utils.book_append_sheet(wb,wsRisks,'Flow Risk Detail');
+
+  // ── Sheet 4: Trade Handoff Readiness, across all blocks ──
+  const handoffRows2=[['Block','Trade','Buffer vs Predecessor','Ready Tasks (next 6w)','Total Tasks (next 6w)','Ready %','Score (1-5)','Rating']];
+  BLOCKS.forEach(bk=>{
+    computeHandoffReadiness(bk).forEach(h=>{
+      handoffRows2.push([bk.label,h.tr.name,h.buffer===null?'—':h.buffer,h.ready,h.total,h.total?h.readyPct+'%':'—',h.score,scoreLabel(h.score)]);
+    });
+  });
+  const wsHandoff2=XLSX.utils.aoa_to_sheet(handoffRows2);
+  wsHandoff2['!cols']=[{wch:9},{wch:22},{wch:18},{wch:16},{wch:16},{wch:10},{wch:11},{wch:11}];
+  wsHandoff2['!freeze']={xSplit:0,ySplit:1};
+  XLSX.utils.book_append_sheet(wb,wsHandoff2,'Trade Handoff Readiness');
 
   const dateStamp=new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb,`Dashboard_Report_${dateStamp}.xlsx`);

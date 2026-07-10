@@ -414,8 +414,13 @@ table.wk-table tbody tr:last-child td{border-bottom:none}
 .chart-legend .sw{width:10px;height:10px;border-radius:3px}
 .lob-scroll{overflow-x:auto;overflow-y:hidden;border:1px solid var(--border2);border-radius:8px}
 .lob-scroll svg{display:block}
+.lob-caveat{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:12.5px;color:#78350f;line-height:1.5;margin-bottom:14px}
+.gap-note-input{width:100%;font-family:var(--font);font-size:12.5px;padding:6px 9px;border:1px solid var(--border2);border-radius:6px;background:#fff;color:var(--text);outline:none}
+.gap-note-input:focus{border-color:var(--accent)}
+.gap-note-input::placeholder{color:var(--faint)}
 
 /* ── PRINT / PDF EXPORT ── */
+@page{ size: landscape; margin: 12mm; }
 @media print{
   *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}
   body{background:#fff}
@@ -432,9 +437,18 @@ table.wk-table tbody tr:last-child td{border-bottom:none}
   .dash-card{margin-bottom:16px}
   .crit-banner{animation:none !important}
   #print-title{display:block !important}
+  /* LoB chart: scale the whole SVG down to the printable page width instead of letting it
+     get clipped at the page edge (it can be many times wider than a page on-screen, where
+     it just scrolls horizontally — print has no scrolling, so it must shrink to fit) */
+  .lob-scroll{overflow:visible !important;border:none !important;width:100% !important}
+  .lob-scroll svg{width:100% !important;height:auto !important;max-width:100%}
+  #lob-print-note{display:block !important}
+  #table-print-note{display:block !important}
 }
 #print-title{display:none;font-size:20px;font-weight:800;color:#1a1f36;padding:0 0 14px;border-bottom:2px solid #1e40af;margin-bottom:16px}
 #print-title .pt-date{font-size:12px;font-weight:500;color:#6b7280;font-family:var(--mono);margin-top:4px}
+#lob-print-note{display:none;font-size:11px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 12px;margin-bottom:10px}
+#table-print-note{display:none;font-size:11px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 12px;margin-bottom:10px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -503,6 +517,7 @@ table.wk-table tbody tr:last-child td{border-bottom:none}
 <!-- MATRIX / FLOW CONTAINER -->
 <div class="main">
   <div id="print-title"></div>
+  <div id="table-print-note"></div>
   <div id="edit-hint-bar" style="font-size:10px;color:var(--muted);padding:0 0 6px;display:none">
     ✎ <strong>Click any cell</strong> to edit progress for that trade — a panel will open on the right
   </div>
@@ -714,10 +729,12 @@ function buildForwardSchedule(bk, takt){
       let predReady=null;
       if(ti>0){
         const predTr=TRADES[ti-1];
-        const predDone=Math.min(cur[predTr.id]||0,bk.N);
-        if(lvl>predDone){
-          const predSched=sched(ti-1);
-          if(predSched[lvl]) predReady=addWorkdays(predSched[lvl].end,1);
+        if(!STALE_TRADES.has(predTr.id)){
+          const predDone=Math.min(cur[predTr.id]||0,bk.N);
+          if(lvl>predDone){
+            const predSched=sched(ti-1);
+            if(predSched[lvl]) predReady=addWorkdays(predSched[lvl].end,1);
+          }
         }
       }
       const ownReady = prevOwnEnd ? addWorkdays(prevOwnEnd,1) : TODAY;
@@ -754,10 +771,12 @@ function buildLoBSchedule(bk, takt){
       let predReady=null;
       if(ti>0){
         const predTr=TRADES[ti-1];
-        const predDone=Math.min(cur[predTr.id]||0,bk.N);
-        if(lvl>predDone){
-          const predSched=sched(ti-1);
-          if(predSched[lvl]) predReady=addWorkdays(predSched[lvl].end,1);
+        if(!STALE_TRADES.has(predTr.id)){
+          const predDone=Math.min(cur[predTr.id]||0,bk.N);
+          if(lvl>predDone){
+            const predSched=sched(ti-1);
+            if(predSched[lvl]) predReady=addWorkdays(predSched[lvl].end,1);
+          }
         }
       }
       const ownReady = prevOwnEnd ? addWorkdays(prevOwnEnd,1) : TODAY;
@@ -816,6 +835,27 @@ function cellStatus(ti,lvl,bkId,wk){
 
 /* ═══════════ STATE ═══════════ */
 let activeBlock='402A';
+
+// Multi-select block filter shared by Trade Matrix and Trade Flow (Data view still uses the
+// single activeBlock above, since editing progress is inherently one-block-at-a-time)
+let mxFlowBlockFilter=new Set(['402A']);
+function mxFlowToggleBlock(id){
+  if(id==='all'){ mxFlowBlockFilter=new Set(BLOCKS.map(b=>b.id)); renderCurrent(); return; }
+  if(mxFlowBlockFilter.has(id)){ if(mxFlowBlockFilter.size>1) mxFlowBlockFilter.delete(id); }
+  else mxFlowBlockFilter.add(id);
+  renderCurrent();
+}
+function mxFlowBlockChipsHtml(){
+  const allOn=mxFlowBlockFilter.size===BLOCKS.length;
+  const chips = `<button class="chip${allOn?' chip-on':''}" onclick="mxFlowToggleBlock('all')">${allOn?'✓ ':''}All Blocks</button>` +
+    BLOCKS.map(b=>{
+      const on=mxFlowBlockFilter.has(b.id);
+      return `<button class="chip${on?' chip-on':''}" onclick="mxFlowToggleBlock('${b.id}')">${on?'✓ ':''}${b.id}</button>`;
+    }).join('');
+  return `<div class="lps-ctrl-block" style="margin-bottom:14px">
+    <div class="lps-ctrl-row"><span class="lps-ctrl-label">Block</span>${chips}</div>
+  </div>`;
+}
 let activeView='matrix'; // 'matrix' | 'flow' | 'data' | 'lookahead' | 'dashboard'
 
 // Look-Ahead (LPS) filter state
@@ -824,7 +864,7 @@ let lpsTradeFilter=new Set(TRADES.map(t=>t.id));
 let lpsBlockFilter=new Set(BLOCKS.map(b=>b.id));
 
 // Line of Balance (LoB) state
-let lobBlock='402A';
+let lobBlockFilter=new Set(['402A']);
 let lobTradeFilter=new Set(TRADES.map(t=>t.id));
 
 /* ═══════════ BLOCK TABS ═══════════ */
@@ -869,7 +909,7 @@ function switchView(v){
   document.getElementById('vt-dash').classList.toggle('on',v==='dashboard');
   document.getElementById('vt-lob').classList.toggle('on',v==='lob');
   const blockTabs=document.getElementById('block-tabs');
-  if(blockTabs) blockTabs.style.display=(v==='lookahead'||v==='dashboard'||v==='lob')?'none':'flex';
+  if(blockTabs) blockTabs.style.display=(v==='data')?'flex':'none';
   document.getElementById('status-legend-mx').style.display=v==='matrix'?'flex':'none';
   document.getElementById('status-legend-fl').style.display=v==='flow'?'flex':'none';
   // Legend/controls bars are only meaningful for matrix/flow; hide for data/lookahead/dashboard/lob
@@ -891,6 +931,23 @@ function switchView(v){
 
 /* localStorage persistence */
 const LS_KEY = 'takt_progress_v4'; // bumped: corrected 6-Jul-2026 as-of-today values from source xlsx
+
+// Separate, lightweight store for site-team notes on individual start-stop gaps (e.g. "crew
+// redeployed to 402A this week"). Kept decoupled from CURRENT/NOTES since the app has no way
+// to detect resource-deployment decisions itself — this is purely a place for a human to
+// record the real reason once they know it, alongside the model's own pace/cascade guess.
+const GAP_NOTES_KEY='takt_gap_notes_v1';
+let GAP_NOTES={};
+function loadGapNotes(){
+  try{ const raw=localStorage.getItem(GAP_NOTES_KEY); if(raw) GAP_NOTES=JSON.parse(raw); }
+  catch(e){ console.warn('loadGapNotes failed:',e); }
+}
+function saveGapNote(key,value){
+  GAP_NOTES[key]=value;
+  try{ localStorage.setItem(GAP_NOTES_KEY, JSON.stringify(GAP_NOTES)); }
+  catch(e){ console.warn('saveGapNote failed:',e); }
+}
+
 function saveToLS(){
   try{
     // Deep-clone to capture current values at save time
@@ -1194,13 +1251,7 @@ function buildMonthWkHeaders(weeks,todayWk,cornerHtml){
    The cell for each week shows which level is active that week.
    Done levels = solid trade color. Active = ringed. Future = light bg.
 ═══════════════════════════════════════════════ */
-function renderMatrix(){
-  const endDate=new Date(document.getElementById('ctrl-end').value);
-  const takt   =parseInt(document.getElementById('ctrl-takt').value)||7;
-  const lead   =parseInt(document.getElementById('ctrl-lead').value)||3;
-  const {weeks,todayWk}=getWeeks();
-
-  const bk=BLOCKS.find(b=>b.id===activeBlock);
+function renderMatrixBlockHtml(bk,endDate,takt,lead,weeks,todayWk){
   const cur=CURRENT[bk.id]||{};
   const scheds=buildSchedule(endDate,bk.N,takt);
 
@@ -1209,8 +1260,7 @@ function renderMatrix(){
     if(NA_402C.has(tr.id)&&bk.id==='402C') return;
     totalCells+=bk.N; doneCells+=Math.min(cur[tr.id]||0,bk.N);
   });
-  const pct=Math.round(doneCells/totalCells*100);
-  document.getElementById('progress-pill').textContent=`${bk.label}: ${pct}% done`;
+  const pct=totalCells?Math.round(doneCells/totalCells*100):0;
 
   /* ── corner cell ── */
   const cornerHtml=`<th class="tc" rowspan="2" style="text-align:left;padding:0;background:#f0f2f8;border-right:2px solid var(--border2);border-bottom:2px solid var(--border2)">
@@ -1311,17 +1361,40 @@ function renderMatrix(){
     body+=`</tr>`;
   });
 
-  document.getElementById('main-wrap').innerHTML=
-    `<table class="mx"><thead><tr>${moHtml}</tr><tr>${wkHtml}</tr></thead><tbody>${body}</tbody></table>`;
+  const tableHtml=`<table class="mx"><thead><tr>${moHtml}</tr><tr>${wkHtml}</tr></thead><tbody>${body}</tbody></table>`;
+  return {html:tableHtml,doneCells,totalCells,pct};
+}
 
-  /* Auto-scroll to today column */
+function renderMatrix(){
+  const endDate=new Date(document.getElementById('ctrl-end').value);
+  const takt   =parseInt(document.getElementById('ctrl-takt').value)||7;
+  const lead   =parseInt(document.getElementById('ctrl-lead').value)||3;
+  const {weeks,todayWk}=getWeeks();
+
+  const blocksToShow=BLOCKS.filter(b=>mxFlowBlockFilter.has(b.id));
+  let siteDone=0, siteTotal=0;
+  let tables='';
+  blocksToShow.forEach((bk,i)=>{
+    const r=renderMatrixBlockHtml(bk,endDate,takt,lead,weeks,todayWk);
+    siteDone+=r.doneCells; siteTotal+=r.totalCells;
+    if(i>0) tables+=`<div class="dash-block-spacer"></div><div class="dash-block-spacer"></div>`;
+    tables+=r.html;
+  });
+  const sitePct=siteTotal?Math.round(siteDone/siteTotal*100):0;
+  document.getElementById('progress-pill').textContent = blocksToShow.length===1
+    ? `${blocksToShow[0].label}: ${sitePct}% done`
+    : `${blocksToShow.length} blocks: ${sitePct}% done`;
+
+  document.getElementById('main-wrap').innerHTML = mxFlowBlockChipsHtml()+tables;
+
+  /* Auto-scroll to today column, first table */
   setTimeout(()=>{
     const wrap=document.getElementById('main-wrap');
     const todayTh=wrap&&wrap.querySelector('th.today-h');
     if(todayTh) todayTh.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
   },100);
 
-  updateInfoBar(bk,endDate,takt,lead,doneCells,totalCells,pct);
+  updateInfoBar(blocksToShow.length?blocksToShow:[BLOCKS[0]],endDate,takt,lead,siteDone,siteTotal,sitePct);
 }
 
 /* ═══════════════════════════════════════════════
@@ -1330,13 +1403,7 @@ function renderMatrix(){
    at that level that week. All trades from Structure → Screed shown.
    6-day workweek, SG public holidays excluded.
 ═══════════════════════════════════════════════ */
-function renderFlow(){
-  const endDate=new Date(document.getElementById('ctrl-end').value);
-  const takt   =parseInt(document.getElementById('ctrl-takt').value)||7;
-  const lead   =parseInt(document.getElementById('ctrl-lead').value)||3;
-  const {weeks,todayWk}=getWeeks();
-
-  const bk=BLOCKS.find(b=>b.id===activeBlock);
+function renderFlowBlockHtml(bk,endDate,takt,lead,weeks,todayWk){
   const cur=CURRENT[bk.id]||{};
   const scheds=buildSchedule(endDate,bk.N,takt);
 
@@ -1346,8 +1413,7 @@ function renderFlow(){
 
   let totalCells=0,doneCells=0;
   appTrades.forEach(tr=>{totalCells+=bk.N; doneCells+=Math.min(cur[tr.id]||0,bk.N);});
-  const pct=Math.round(doneCells/totalCells*100);
-  document.getElementById('progress-pill').textContent=bk.label+': '+pct+'% done';
+  const pct=totalCells?Math.round(doneCells/totalCells*100):0;
 
   function tradesDoneAtLevel(lvl){
     return appTrades.filter(tr=>(cur[tr.id]||0)>=lvl).length;
@@ -1418,7 +1484,31 @@ function renderFlow(){
     body+='</tr>';
   }
 
-  document.getElementById('main-wrap').innerHTML='<table class="fl"><thead><tr>'+moHtml+'</tr><tr>'+wkHtml+'</tr></thead><tbody>'+body+'</tbody></table>';
+  const tableHtml='<table class="fl"><thead><tr>'+moHtml+'</tr><tr>'+wkHtml+'</tr></thead><tbody>'+body+'</tbody></table>';
+  return {html:tableHtml,doneCells,totalCells,pct};
+}
+
+function renderFlow(){
+  const endDate=new Date(document.getElementById('ctrl-end').value);
+  const takt   =parseInt(document.getElementById('ctrl-takt').value)||7;
+  const lead   =parseInt(document.getElementById('ctrl-lead').value)||3;
+  const {weeks,todayWk}=getWeeks();
+
+  const blocksToShow=BLOCKS.filter(b=>mxFlowBlockFilter.has(b.id));
+  let siteDone=0, siteTotal=0;
+  let tables='';
+  blocksToShow.forEach((bk,i)=>{
+    const r=renderFlowBlockHtml(bk,endDate,takt,lead,weeks,todayWk);
+    siteDone+=r.doneCells; siteTotal+=r.totalCells;
+    if(i>0) tables+=`<div class="dash-block-spacer"></div><div class="dash-block-spacer"></div>`;
+    tables+=r.html;
+  });
+  const sitePct=siteTotal?Math.round(siteDone/siteTotal*100):0;
+  document.getElementById('progress-pill').textContent = blocksToShow.length===1
+    ? `${blocksToShow[0].label}: ${sitePct}% done`
+    : `${blocksToShow.length} blocks: ${sitePct}% done`;
+
+  document.getElementById('main-wrap').innerHTML = mxFlowBlockChipsHtml()+tables;
 
   setTimeout(function(){
     const wrap=document.getElementById('main-wrap');
@@ -1426,7 +1516,7 @@ function renderFlow(){
     if(todayTh) todayTh.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
   },100);
 
-  updateInfoBar(bk,endDate,takt,lead,doneCells,totalCells,pct);
+  updateInfoBar(blocksToShow.length?blocksToShow:[BLOCKS[0]],endDate,takt,lead,siteDone,siteTotal,sitePct);
 }
 
 /* ═══════════════════════════════════════════════
@@ -2000,7 +2090,6 @@ function renderDashboard(){
       <div class="stat-card stat-green"><span class="n">${allRisks-allCritical}</span><span class="l">🛡️ Buffer warnings</span></div>
     </div>
     ${statusLegendHtml()}
-    ${blockCompareChartHtml(blockStats)}
     <div class="dash-overview-wrap">
       <table class="dash-overview">
         <thead><tr><th>Block</th><th>Progress</th><th>Look-Ahead Ready (W4-6)</th><th>Top delay</th><th>Top flow risk</th></tr></thead>
@@ -2033,7 +2122,12 @@ function renderDashboard(){
    Row height / column width are set generously (52px / 60px) specifically so lines from
    adjacent levels and weeks never crowd together.
 ═══════════════════════════════════════════════ */
-function lobSetBlock(id){ lobBlock=id; renderLoB(); }
+function lobToggleBlock(id){
+  if(id==='all'){ lobBlockFilter=new Set(BLOCKS.map(b=>b.id)); renderLoB(); return; }
+  if(lobBlockFilter.has(id)){ if(lobBlockFilter.size>1) lobBlockFilter.delete(id); }
+  else lobBlockFilter.add(id);
+  renderLoB();
+}
 function lobToggleTrade(id){
   if(lobTradeFilter.has(id)){ if(lobTradeFilter.size>1) lobTradeFilter.delete(id); }
   else lobTradeFilter.add(id);
@@ -2042,10 +2136,12 @@ function lobToggleTrade(id){
 function lobResetTrades(){ lobTradeFilter=new Set(TRADES.map(t=>t.id)); renderLoB(); }
 
 function lobControlsHtml(){
-  const blockChips = BLOCKS.map(b=>{
-    const on = b.id===lobBlock;
-    return `<button class="chip${on?' chip-on':''}" onclick="lobSetBlock('${b.id}')">${on?'✓ ':''}${b.id}</button>`;
-  }).join('');
+  const allOn=lobBlockFilter.size===BLOCKS.length;
+  const blockChips = `<button class="chip${allOn?' chip-on':''}" onclick="lobToggleBlock('all')">${allOn?'✓ ':''}All Blocks</button>` +
+    BLOCKS.map(b=>{
+      const on = lobBlockFilter.has(b.id);
+      return `<button class="chip${on?' chip-on':''}" onclick="lobToggleBlock('${b.id}')">${on?'✓ ':''}${b.id}</button>`;
+    }).join('');
   const tradeChips = TRADES.map(tr=>{
     const on=lobTradeFilter.has(tr.id);
     return `<button class="chip chip-trade${on?' chip-on':''}" style="--tc:${tr.color}" onclick="lobToggleTrade('${tr.id}')">${on?'✓ ':''}${tr.short}</button>`;
@@ -2053,7 +2149,7 @@ function lobControlsHtml(){
   return `<div class="lps-ctrl-block">
     <div class="lps-ctrl-row"><span class="lps-ctrl-label">Block</span>${blockChips}</div>
     <div class="lps-ctrl-row"><span class="lps-ctrl-label">Trade</span>${tradeChips}<button class="chip chip-reset" onclick="lobResetTrades()">Reset trades</button></div>
-    <div class="lps-ctrl-row"><span class="lps-ctrl-label">Export</span><button class="pdf-btn" onclick="exportViewToPDF()">🖨 Export PDF</button></div>
+    <div class="lps-ctrl-row"><span class="lps-ctrl-label">Export</span><button class="export-btn" onclick="exportLoB()">⬇ Export LoB (.xlsx)</button><button class="pdf-btn" onclick="exportViewToPDF()">🖨 Export PDF</button></div>
   </div>`;
 }
 
@@ -2169,6 +2265,66 @@ function lobChartSvg(bk,trades,scheds,cur,L){
   </svg>`;
 }
 
+// Diagnose WHY a gap happened: compare the predecessor's own per-level duration against the
+// successor's. If the predecessor is structurally slower per level, that's a real pace
+// mismatch — the faster successor will always catch up and wait. If the predecessor's own
+// pace is equal or faster, the wait isn't about rate at all — the predecessor itself must be
+// running behind due to delays inherited from earlier in the sequence (cascading delay).
+function lobDiagnoseGap(tr,predTr){
+  if(predTr.days>tr.days){
+    return {
+      cause:'Pace mismatch',
+      color:'#b45309',
+      detail:`${predTr.name} runs ${predTr.days} workdays/level vs ${tr.short}'s ${tr.days} — ${tr.short} finishes each level faster and keeps catching up to a structurally slower predecessor. Fix: add a crew/shift to ${predTr.short}, or resequence.`
+    };
+  }
+  return {
+    cause:'Cascading delay',
+    color:'#7c3aed',
+    detail:`${predTr.name}'s own pace (${predTr.days}wd/level) isn't the problem — it's running behind schedule due to delays inherited from earlier in the sequence, so ${tr.short} has to wait for it to catch up. Fix: trace the delay further upstream, not at this handoff.`
+  };
+}
+
+function lobTopGapsHtml(bk,trades,scheds){
+  let gaps=[];
+  trades.forEach(tr=>{
+    const ti=TRADES.indexOf(tr);
+    if(ti<=0) return;
+    const predTr=TRADES[ti-1];
+    Object.entries(scheds[ti]).forEach(([lvl,w])=>{
+      if(w.waited && w.waitDays>0) gaps.push({tr,predTr,lvl:parseInt(lvl),waitDays:w.waitDays,start:w.start});
+    });
+  });
+  const caveat=`<div class="lob-caveat">⚠️ <strong>What this can't see:</strong> the "Cause" column is a schedule-model guess (pace mismatch or cascading delay) — it has no visibility into crew/resource decisions. If a trade actually stopped here to redeploy to another block, material shortage, weather, etc., that won't show up automatically. Use "Actual Cause" below to record the real reason once you know it — it's saved in this browser and shown alongside the model's guess from then on.</div>`;
+  if(!gaps.length){
+    return `<div class="chart-card"><div class="chart-title">🔍 Top Start-Stop Gaps</div>${caveat}<div class="dash-empty">No start-stop waits for the current filters ✓</div></div>`;
+  }
+  gaps.sort((a,b)=>b.waitDays-a.waitDays);
+  const totalDays=gaps.reduce((s,g)=>s+g.waitDays,0);
+  const top=gaps.slice(0,8);
+  const rows=top.map(g=>{
+    const diag=lobDiagnoseGap(g.tr,g.predTr);
+    const key=`${bk.id}_${g.tr.id}_L${g.lvl}`;
+    const noteVal=(GAP_NOTES[key]||'').replace(/"/g,'&quot;');
+    return `<tr class="dtbl-warning">
+      <td><span class="trade-pill-solid" style="background:${g.tr.color}">${g.tr.name}</span></td>
+      <td class="dtbl-num">L${g.lvl}</td>
+      <td class="dtbl-num" style="color:#dc2626;font-weight:800">${g.waitDays}wd</td>
+      <td>${g.predTr.name}</td>
+      <td style="font-weight:800;color:${diag.color}">${diag.cause}<div class="dtbl-reason" style="margin-top:3px">${diag.detail}</div></td>
+      <td><input type="text" class="gap-note-input" placeholder="e.g. crew moved to 402A…" value="${noteVal}" onchange="saveGapNote('${key}',this.value)"></td>
+    </tr>`;
+  }).join('');
+  return `<div class="chart-card">
+    <div class="chart-title">🔍 Top Start-Stop Gaps <span class="cnt">worst ${top.length} of ${gaps.length} · ${totalDays}wd total</span></div>
+    ${caveat}
+    <table class="dtbl">
+      <thead><tr><th style="width:14%">Trade</th><th style="width:6%">Level</th><th style="width:8%">Wait</th><th style="width:13%">Waiting On</th><th style="width:31%">Model's Guess (pace vs. cascade)</th><th style="width:28%">Actual Cause (site team)</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
 function lobTradeListHtml(bk,trades,scheds,cur){
   if(!trades.length) return '';
   const critical=computeFlowRisk(bk).filter(r=>r.sev==='critical');
@@ -2208,9 +2364,8 @@ function lobTradeListHtml(bk,trades,scheds,cur){
   </div>`;
 }
 
-function renderLoB(){
+function renderLoBBlockHtml(bk){
   const takt=parseInt(document.getElementById('ctrl-takt').value)||7;
-  const bk=BLOCKS.find(b=>b.id===lobBlock)||BLOCKS[0];
   const scheds=buildLoBSchedule(bk,takt);
   const cur=CURRENT[bk.id]||{};
   const allTrades=appTradesFor(bk);
@@ -2245,17 +2400,15 @@ function renderLoB(){
   const critical=computeFlowRisk(bk).filter(r=>r.sev==='critical'&&trades.some(t=>t.id===r.currTr.id));
   const waitStats=lobCountWaits(trades,scheds);
 
-  const html=`<div class="lps-wrap">
-    ${lobControlsHtml()}
-    <div class="section-heading">📈 LINE OF BALANCE — ${bk.label} (${bk.sub})</div>
+  return `<div class="section-heading">📈 LINE OF BALANCE — ${bk.label} (${bk.sub})</div>
     <div class="stat-row">
       <div class="stat-card stat-blue"><span class="n">${trades.length}</span><span class="l">📋 Trades shown</span></div>
       <div class="stat-card stat-red"><span class="n">${critical.length}</span><span class="l">⛔ Crashing (line conflicts)</span></div>
       <div class="stat-card stat-amber"><span class="n">${waitStats.days}d</span><span class="l">⏸ Start-stop wait (${waitStats.n} gap${waitStats.n===1?'':'s'})</span></div>
     </div>
-    ${statusLegendHtml()}
     <div class="chart-card">
       <div class="chart-title">📈 Time-Location Chart <span class="cnt">L1–L${bk.N} · full process · ${totalWeeks}w</span></div>
+      <div id="lob-print-note">🖨 This chart is scaled to fit the printed page width, so labels may be small. For full-resolution detail, use ⬇ Export LoB (.xlsx) instead, or filter to fewer trades before printing.</div>
       <div class="lob-scroll">${svg}</div>
       <div class="chart-legend">
         <span class="lg"><span class="sw" style="background:#dc2626"></span>⛔ Crash point (sequence conflict)</span>
@@ -2263,22 +2416,42 @@ function renderLoB(){
         <span class="lg" style="display:inline-flex;align-items:center;gap:5px"><svg width="18" height="4"><line x1="0" y1="2" x2="18" y2="2" stroke="#9ca3af" stroke-width="2" stroke-dasharray="2,3"/></svg>Estimated (already complete — not individually dated in source data)</span>
       </div>
     </div>
-    ${lobTradeListHtml(bk,trades,scheds,cur)}
+    ${lobTopGapsHtml(bk,trades,scheds)}
+    ${lobTradeListHtml(bk,trades,scheds,cur)}`;
+}
+
+function renderLoB(){
+  const blocksToShow=BLOCKS.filter(b=>lobBlockFilter.has(b.id));
+  let sections='';
+  blocksToShow.forEach((bk,i)=>{
+    if(i>0) sections+=`<div class="dash-block-spacer"></div><div class="dash-block-spacer"></div>`;
+    sections+=renderLoBBlockHtml(bk);
+  });
+
+  const html=`<div class="lps-wrap">
+    ${lobControlsHtml()}
+    ${statusLegendHtml()}
+    ${sections}
   </div>`;
 
   document.getElementById('main-wrap').innerHTML=html;
+  const lastBk=blocksToShow[blocksToShow.length-1]||BLOCKS[0];
   document.getElementById('info-bar').innerHTML=`
-    <div class="info-item">X = calendar time (today → ${fmtS(chartEnd)}) · Y = level (L1 bottom → L${bk.N} top)</div>
+    <div class="info-item">Showing <strong>${blocksToShow.length}</strong> block${blocksToShow.length===1?'':'s'}: ${blocksToShow.map(b=>b.label).join(', ')||'—'}</div>
     <div class="info-item">Only today-onward is dated — completed levels aren't individually dated in the source data, so each line starts at the trade's current level</div>
     <div class="info-item">⛔ = crashing: a later trade's line has caught up to/passed an earlier trade's — a real sequence conflict, chase it now</div>
+    <div class="info-item">⚠️ Start-stop causes are a schedule-model guess only — the app can't see crew redeployment, material, or weather decisions; add the real reason in "Actual Cause" once known</div>
   `;
 }
 
 /* ═══════════ INFO BAR ═══════════ */
-function updateInfoBar(bk,endDate,takt,lead,done,total,pct){
+function updateInfoBar(blocksToShow,endDate,takt,lead,done,total,pct){
   const daysLeft=diff(TODAY,endDate);
+  const blockLabel = blocksToShow.length===1
+    ? `<strong>${blocksToShow[0].label}</strong> (${blocksToShow[0].sub}) · N=<strong>L${blocksToShow[0].N}</strong>`
+    : `<strong>${blocksToShow.length} blocks</strong>: ${blocksToShow.map(b=>b.label).join(', ')}`;
   document.getElementById('info-bar').innerHTML=`
-    <div class="info-item">Block <strong>${bk.label}</strong> (${bk.sub}) · N=<strong>L${bk.N}</strong></div>
+    <div class="info-item">Block ${blockLabel}</div>
     <div class="info-item">Completion: <strong>${fmt(endDate)}</strong> · <strong>${daysLeft}</strong> days / <strong>${Math.ceil(daysLeft/7)}</strong> weeks</div>
     <div class="info-item">Takt <strong>${takt}d/level</strong> · Lead <strong>N-${lead}</strong></div>
     <div class="info-item">Progress: <strong>${done}/${total}</strong> level-cells (<strong>${pct}%</strong>)</div>
@@ -2470,27 +2643,53 @@ function exportLookahead(){
    shows. document.title is used as the suggested filename by most browsers' "Save
    as PDF" print destination.
 ═══════════════════════════════════════════════ */
+// Matrix/Flow tables can be far wider than a printed page (many weeks of columns) — unlike
+// the LoB chart's SVG, a table has no built-in viewBox-style scaling, so shrink it with CSS
+// zoom (participates in layout flow properly, unlike transform:scale) computed from its
+// actual rendered width against a rough usable print-page width. Restored after printing.
+function applyPrintFit(doc,view){
+  if(view!=='matrix' && view!=='flow') return function(){};
+  const sel = view==='matrix' ? 'table.mx' : 'table.fl';
+  const tbls = doc.querySelectorAll(sel);
+  if(!tbls.length) return function(){};
+  const targetWidth = 1000; // ~usable CSS px width for landscape print with margins
+  const restores=[];
+  tbls.forEach(tbl=>{
+    const prevZoom = tbl.style.zoom || '';
+    const actualWidth = tbl.scrollWidth || tbl.offsetWidth || 0;
+    if(actualWidth>targetWidth){
+      tbl.style.zoom = Math.max(0.2, targetWidth/actualWidth);
+    }
+    restores.push(()=>{ tbl.style.zoom = prevZoom; });
+  });
+  return function(){ restores.forEach(fn=>fn()); };
+}
+
 function exportViewToPDF(){
   const todayStr = TODAY.toLocaleDateString('en-SG',{day:'2-digit',month:'short',year:'numeric'});
   const titles = {
-    matrix:    `Trade Matrix - ${activeBlock} - ${todayStr}`,
-    flow:      `Trade Flow by Level - ${activeBlock} - ${todayStr}`,
+    matrix:    `Trade Matrix - ${[...mxFlowBlockFilter].join('+')} - ${todayStr}`,
+    flow:      `Trade Flow by Level - ${[...mxFlowBlockFilter].join('+')} - ${todayStr}`,
     data:      `Site Progress Data - ${activeBlock} - ${todayStr}`,
     lookahead: `Last Planner Look-Ahead - ${todayStr}`,
     dashboard: `Project Dashboard - ${todayStr}`,
-    lob:       `Line of Balance - ${lobBlock} - ${todayStr}`,
+    lob:       `Line of Balance - ${[...lobBlockFilter].join('+')} - ${todayStr}`,
   };
   const printHeadings = {
-    matrix:    `📊 Trade Matrix — ${activeBlock}`,
-    flow:      `🏢 Trade Flow by Level — ${activeBlock}`,
+    matrix:    `📊 Trade Matrix — ${[...mxFlowBlockFilter].join(', ')}`,
+    flow:      `🏢 Trade Flow by Level — ${[...mxFlowBlockFilter].join(', ')}`,
     data:      `📋 Site Progress Data — ${activeBlock}`,
     lookahead: `🗓️ Last Planner System — 6-Week Look-Ahead`,
     dashboard: `🚦 Project Dashboard`,
-    lob:       `📈 Line of Balance — ${lobBlock}`,
+    lob:       `📈 Line of Balance — ${[...lobBlockFilter].join(', ')}`,
   };
   const newTitle = (titles[activeView] || 'Takt Report - ' + todayStr).replace(/[\\/:*?"<>|]/g,'-');
   const pt = document.getElementById('print-title');
   if(pt) pt.innerHTML = `${printHeadings[activeView]||'Takt Report'}<div class="pt-date">Generated ${todayStr}</div>`;
+  const tn = document.getElementById('table-print-note');
+  if(tn) tn.innerHTML = (activeView==='matrix'||activeView==='flow')
+    ? '🖨 This table is wide (many weeks of columns) and has been shrunk to fit the printed page width, so text may be small. For full-resolution detail, use ⬇ Export Excel instead, or narrow the "Weeks to show" control before printing.'
+    : '';
 
   // window.print() is commonly blocked (silently, no error) when this page is running inside
   // a sandboxed iframe — e.g. an embedded artifact preview. Detect that case and fall back to
@@ -2522,7 +2721,10 @@ function exportViewToPDF(){
             w.switchView(savedView);
           }
           w.focus();
-          setTimeout(()=>{ w.print(); }, 350);
+          setTimeout(()=>{
+            applyPrintFit(w.document, savedView);
+            w.print();
+          }, 350);
         }
         catch(e){ alert('Could not open the print dialog automatically. In the new tab that just opened, please use Print (Ctrl/Cmd+P) and choose "Save as PDF".'); }
       }, 500);
@@ -2535,8 +2737,10 @@ function exportViewToPDF(){
     usedFallback = true;
     openFreshTabAndPrint();
   } else {
+    const restoreZoom = applyPrintFit(document, activeView);
     try{ window.print(); }
     catch(e){ usedFallback = true; openFreshTabAndPrint(); }
+    setTimeout(restoreZoom, 800);
   }
   setTimeout(()=>{ document.title = prevTitle; }, 800);
 }
@@ -2623,6 +2827,105 @@ function exportDashboard(){
 
   const dateStamp=new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb,`Dashboard_Report_${dateStamp}.xlsx`);
+}
+
+/* ═══════════ EXPORT: LINE OF BALANCE (LoB) REPORT ═══════════ */
+function exportLoB(){
+  if(typeof XLSX==='undefined'){alert('SheetJS not loaded yet. Please wait and try again.');return;}
+
+  const takt=parseInt(document.getElementById('ctrl-takt').value)||7;
+  const blocksToShow=BLOCKS.filter(b=>lobBlockFilter.has(b.id));
+  const exportDate=new Date().toLocaleDateString('en-SG',{day:'2-digit',month:'short',year:'numeric'});
+  const wb=XLSX.utils.book_new();
+
+  const summaryRows=[['Block','Trades Shown','Crashing (conflicts)','Start-stop wait (workdays)','Start-stop gaps']];
+  const schedRows=[['Block','Trade','Level','Start','End','Type','Waited','Wait (workdays)']];
+  const gapRows=[['Block','Trade','Level','Wait (workdays)','Waiting On','Model Cause','Model Diagnosis & Fix','Actual Cause (site team)']];
+  const crashRows=[['Block','Trade A (predecessor)','Trade B (successor)','Buffer','Detail']];
+  const sumRows=[['Block','Trade','Current Level','Next Level Window','Start-Stop Wait (workdays)','Start-Stop Gaps','Clash']];
+
+  blocksToShow.forEach(bk=>{
+    const scheds=buildLoBSchedule(bk,takt);
+    const cur=CURRENT[bk.id]||{};
+    const trades=appTradesFor(bk).filter(tr=>lobTradeFilter.has(tr.id));
+    const critical=computeFlowRisk(bk).filter(r=>r.sev==='critical'&&trades.some(t=>t.id===r.currTr.id));
+    const waitStats=lobCountWaits(trades,scheds);
+
+    summaryRows.push([bk.label,trades.length,critical.length,waitStats.days,waitStats.n]);
+
+    trades.forEach(tr=>{
+      const ti=TRADES.indexOf(tr);
+      for(let lvl=1; lvl<=bk.N; lvl++){
+        const w=scheds[ti][lvl];
+        if(!w) continue;
+        schedRows.push([bk.label,tr.name,'L'+lvl,fmtS(w.start),fmtS(w.end),w.estimated?'Estimated (complete)':'Forecast',w.waited?'Yes':'No',w.waited?w.waitDays:0]);
+      }
+    });
+
+    let gaps=[];
+    trades.forEach(tr=>{
+      const ti=TRADES.indexOf(tr);
+      if(ti<=0) return;
+      const predTr=TRADES[ti-1];
+      Object.entries(scheds[ti]).forEach(([lvl,w])=>{
+        if(w.waited && w.waitDays>0) gaps.push({tr,predTr,lvl:parseInt(lvl),waitDays:w.waitDays});
+      });
+    });
+    gaps.sort((a,b)=>b.waitDays-a.waitDays);
+    gaps.forEach(g=>{
+      const diag=lobDiagnoseGap(g.tr,g.predTr);
+      const key=`${bk.id}_${g.tr.id}_L${g.lvl}`;
+      gapRows.push([bk.label,g.tr.name,'L'+g.lvl,g.waitDays,g.predTr.name,diag.cause,diag.detail,GAP_NOTES[key]||'']);
+    });
+
+    critical.forEach(r=>{
+      crashRows.push([bk.label,r.prevTr.name,r.currTr.name,r.buffer,dashFlowTip(r)]);
+    });
+
+    trades.forEach(tr=>{
+      const ti=TRADES.indexOf(tr);
+      const doneLvl=Math.min(cur[tr.id]||0,bk.N);
+      const waitLevels=Object.values(scheds[ti]).filter(w=>w.waited);
+      const waitDaysTotal=waitLevels.reduce((s,w)=>s+w.waitDays,0);
+      const nextWin=scheds[ti][doneLvl+1];
+      const asSuccessor=critical.find(r=>r.currTr.id===tr.id);
+      const asPredecessor=critical.find(r=>r.prevTr.id===tr.id);
+      let clash='None';
+      if(asSuccessor) clash=`vs ${asSuccessor.prevTr.name} (caught up, buffer ${asSuccessor.buffer})`;
+      else if(asPredecessor) clash=`vs ${asPredecessor.currTr.name} (being caught up to, buffer ${asPredecessor.buffer})`;
+      sumRows.push([bk.label,tr.name,'L'+doneLvl+'/'+bk.N,nextWin?fmtS(nextWin.start)+' – '+fmtS(nextWin.end):'Complete',waitDaysTotal,waitLevels.length,clash]);
+    });
+  });
+
+  const wsSummary=XLSX.utils.aoa_to_sheet(summaryRows);
+  wsSummary['!cols']=[{wch:9},{wch:14},{wch:20},{wch:24},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,wsSummary,'Summary');
+
+  if(schedRows.length===1) schedRows.push(['(no data for the current filters)']);
+  const wsSched=XLSX.utils.aoa_to_sheet(schedRows);
+  wsSched['!cols']=[{wch:9},{wch:22},{wch:7},{wch:11},{wch:11},{wch:20},{wch:9},{wch:16}];
+  wsSched['!freeze']={xSplit:0,ySplit:1};
+  XLSX.utils.book_append_sheet(wb,wsSched,'Full Schedule');
+
+  if(gapRows.length===1) gapRows.push(['(no start-stop gaps for the current filters)']);
+  const wsGaps=XLSX.utils.aoa_to_sheet(gapRows);
+  wsGaps['!cols']=[{wch:9},{wch:22},{wch:7},{wch:14},{wch:18},{wch:16},{wch:60},{wch:35}];
+  wsGaps['!freeze']={xSplit:0,ySplit:1};
+  XLSX.utils.book_append_sheet(wb,wsGaps,'Start-Stop Gaps');
+
+  if(crashRows.length===1) crashRows.push(['(no sequence conflicts for the current filters)']);
+  const wsCrash=XLSX.utils.aoa_to_sheet(crashRows);
+  wsCrash['!cols']=[{wch:9},{wch:20},{wch:20},{wch:10},{wch:70}];
+  XLSX.utils.book_append_sheet(wb,wsCrash,'Crashes');
+
+  const wsSum=XLSX.utils.aoa_to_sheet(sumRows);
+  wsSum['!cols']=[{wch:9},{wch:22},{wch:14},{wch:24},{wch:22},{wch:16},{wch:45}];
+  wsSum['!freeze']={xSplit:0,ySplit:1};
+  XLSX.utils.book_append_sheet(wb,wsSum,'Trade Summary');
+
+  const dateStamp2=new Date().toISOString().slice(0,10);
+  const blockTag=blocksToShow.length===1?blocksToShow[0].id:blocksToShow.length+'blocks';
+  XLSX.writeFile(wb,`LoB_${blockTag}_${dateStamp2}.xlsx`);
 }
 
 /* ═══════════ EXCEL IMPORT ═══════════ */
@@ -2927,6 +3230,7 @@ const ORIGINAL_NOTES = JSON.parse(JSON.stringify(NOTES));
 
 // Load any saved user edits from localStorage
 loadFromLS();
+loadGapNotes();
 initDarkMode();
 
 document.getElementById('today-pill').textContent=

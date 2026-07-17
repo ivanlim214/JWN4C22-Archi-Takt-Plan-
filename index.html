@@ -451,6 +451,7 @@ table.wk-table tbody tr:last-child td{border-bottom:none}
 #table-print-note{display:none;font-size:11px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 12px;margin-bottom:10px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 </head>
 <body>
 <div id="tip"></div>
@@ -479,9 +480,7 @@ table.wk-table tbody tr:last-child td{border-bottom:none}
 
 <!-- CONTROLS -->
 <div class="ctrl-wrap">
-  <div class="cg"><span class="cl">Completion date (N)</span><input type="date" id="ctrl-end" value="2026-12-31" style="width:145px"></div>
   <div class="cg"><span class="cl">Takt cadence (days/level)</span><input type="number" id="ctrl-takt" value="7" min="3" max="21" style="width:72px"></div>
-  <div class="cg"><span class="cl">Lead offset (N-?)</span><input type="number" id="ctrl-lead" value="3" min="1" max="8" style="width:60px"></div>
   <div class="cg"><span class="cl">Weeks to show</span><input type="number" id="ctrl-weeks" value="60" min="20" max="120" style="width:72px"></div>
   <div class="cg"><span class="cl">Weeks before today</span><input type="number" id="ctrl-past" value="8" min="0" max="30" style="width:72px"></div>
   <button class="gbtn" onclick="renderCurrent()">Update</button>
@@ -992,6 +991,67 @@ function pctColors(pct){
   return {c:'#dc2626',bg:'rgba(220,38,38,0.12)'};
 }
 
+/* ── Excel "color coding" via real cell colors (ExcelJS) ──
+   The free/community build of SheetJS (still used elsewhere in this app for reading imports)
+   cannot write real cell background colors — verified directly: a fill style set on a cell
+   is silently dropped on save. ExcelJS (loaded alongside it) DOES persist real cell fills —
+   also verified directly by a write/read round-trip. ExcelJS is used for every Excel EXPORT
+   in this app so status/severity/progress cells get genuine colored backgrounds; SheetJS
+   stays in place for the import-parsing path since that only needs to read values. */
+const XL_STYLE = {
+  green: {fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFC6EFCE'}}, font:{color:{argb:'FF006100'},bold:true}},
+  blue:  {fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFBDD7EE'}}, font:{color:{argb:'FF1F4E78'},bold:true}},
+  amber: {fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFFFEB9C'}}, font:{color:{argb:'FF9C6500'},bold:true}},
+  red:   {fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFFFC7CE'}}, font:{color:{argb:'FF9C0006'},bold:true}},
+  gray:  {fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FFE7E6E6'}}, font:{color:{argb:'FF595959'},bold:true}},
+  headerFill: {type:'pattern',pattern:'solid',fgColor:{argb:'FFF0F2F8'}},
+};
+function xlPctColorKey(pct){
+  if(pct>=80) return 'green';
+  if(pct>=50) return 'blue';
+  if(pct>=20) return 'amber';
+  return 'red';
+}
+function xlScoreColorKey(score){
+  if(score>=5) return 'green';
+  if(score>=4) return 'blue';
+  if(score===3) return 'amber';
+  return 'red';
+}
+function xlSeverityColorKey(sev){
+  if(sev==='critical') return 'red';
+  if(sev==='warning') return 'amber';
+  return 'green';
+}
+function xlApplyColor(cell,colorKey){
+  const s=XL_STYLE[colorKey];
+  if(!s||!cell) return;
+  cell.fill=s.fill;
+  cell.font=Object.assign({},cell.font,s.font);
+}
+function xlProgressStatusLabel(pct){
+  if(pct>=100) return 'Complete';
+  if(pct>=80) return 'On Track';
+  if(pct>=50) return 'In Progress';
+  if(pct>=20) return 'Behind';
+  return 'Just Started';
+}
+function xlHeaderRow(ws,headers){
+  const row=ws.addRow(headers);
+  row.eachCell(c=>{ c.font={bold:true,color:{argb:'FF1A1F36'}}; c.fill=XL_STYLE.headerFill; c.alignment={vertical:'middle'}; });
+  row.height=20;
+  return row;
+}
+async function xlDownload(wb,filename){
+  const buffer=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
 function renderData(){
   const bk=BLOCKS.find(b=>b.id===activeBlock);
 
@@ -1253,7 +1313,7 @@ function buildMonthWkHeaders(weeks,todayWk,cornerHtml){
 ═══════════════════════════════════════════════ */
 function renderMatrixBlockHtml(bk,endDate,takt,lead,weeks,todayWk){
   const cur=CURRENT[bk.id]||{};
-  const scheds=buildSchedule(endDate,bk.N,takt);
+  const scheds=buildLoBSchedule(bk,takt);
 
   let totalCells=0,doneCells=0;
   TRADES.forEach(tr=>{
@@ -1267,7 +1327,7 @@ function renderMatrixBlockHtml(bk,endDate,takt,lead,weeks,todayWk){
     <div style="display:flex;align-items:center;gap:7px;padding:8px 10px">
       <div>
         <div style="font-size:12px;font-weight:700;color:var(--text)">${bk.label} (${bk.sub})</div>
-        <div style="font-size:9px;color:var(--muted);font-family:var(--mono)">N=L${bk.N} · Takt ${takt}wd · Lead N-${lead} · Mon–Sat excl SG PH</div>
+        <div style="font-size:9px;color:var(--muted);font-family:var(--mono)">N=L${bk.N} · Takt ${takt}wd · anchored to actual progress · Mon–Sat excl SG PH</div>
       </div>
     </div>
   </th>`;
@@ -1366,9 +1426,9 @@ function renderMatrixBlockHtml(bk,endDate,takt,lead,weeks,todayWk){
 }
 
 function renderMatrix(){
-  const endDate=new Date(document.getElementById('ctrl-end').value);
+  const endDate=null;
   const takt   =parseInt(document.getElementById('ctrl-takt').value)||7;
-  const lead   =parseInt(document.getElementById('ctrl-lead').value)||3;
+  const lead   =null;
   const {weeks,todayWk}=getWeeks();
 
   const blocksToShow=BLOCKS.filter(b=>mxFlowBlockFilter.has(b.id));
@@ -1405,7 +1465,7 @@ function renderMatrix(){
 ═══════════════════════════════════════════════ */
 function renderFlowBlockHtml(bk,endDate,takt,lead,weeks,todayWk){
   const cur=CURRENT[bk.id]||{};
-  const scheds=buildSchedule(endDate,bk.N,takt);
+  const scheds=buildLoBSchedule(bk,takt);
 
   /* applicable trades for this block */
   const appTrades=TRADES.filter(tr=>!(NA_402C.has(tr.id)&&bk.id==='402C'));
@@ -1419,7 +1479,7 @@ function renderFlowBlockHtml(bk,endDate,takt,lead,weeks,todayWk){
     return appTrades.filter(tr=>(cur[tr.id]||0)>=lvl).length;
   }
 
-  const cornerHtml='<th class="tc" rowspan="2" style="text-align:center;padding:0;background:#f0f2f8;border-right:2px solid var(--border2);border-bottom:2px solid var(--border2);min-width:105px;max-width:105px"><div style="padding:6px 5px;display:flex;flex-direction:column;align-items:center;gap:2px"><div style="font-size:12px;font-weight:700;color:var(--text)">'+bk.label+' ('+bk.sub+')</div><div style="font-size:8px;color:var(--muted);font-family:var(--mono)">N=L'+bk.N+' · Takt '+takt+'wd</div><div style="font-size:8px;color:var(--muted)">Level ↓ · Time →</div><div style="font-size:7px;color:var(--faint)">Mon–Sat, excl SG PH</div></div></th>';
+  const cornerHtml='<th class="tc" rowspan="2" style="text-align:center;padding:0;background:#f0f2f8;border-right:2px solid var(--border2);border-bottom:2px solid var(--border2);min-width:105px;max-width:105px"><div style="padding:6px 5px;display:flex;flex-direction:column;align-items:center;gap:2px"><div style="font-size:12px;font-weight:700;color:var(--text)">'+bk.label+' ('+bk.sub+')</div><div style="font-size:8px;color:var(--muted);font-family:var(--mono)">N=L'+bk.N+' · Takt '+takt+'wd · actual progress</div><div style="font-size:8px;color:var(--muted)">Level ↓ · Time →</div><div style="font-size:7px;color:var(--faint)">Mon–Sat, excl SG PH</div></div></th>';
   const {moHtml,wkHtml}=buildMonthWkHeaders(weeks,todayWk,cornerHtml);
 
   let body='';
@@ -1489,9 +1549,9 @@ function renderFlowBlockHtml(bk,endDate,takt,lead,weeks,todayWk){
 }
 
 function renderFlow(){
-  const endDate=new Date(document.getElementById('ctrl-end').value);
+  const endDate=null;
   const takt   =parseInt(document.getElementById('ctrl-takt').value)||7;
-  const lead   =parseInt(document.getElementById('ctrl-lead').value)||3;
+  const lead   =null;
   const {weeks,todayWk}=getWeeks();
 
   const blocksToShow=BLOCKS.filter(b=>mxFlowBlockFilter.has(b.id));
@@ -2446,14 +2506,12 @@ function renderLoB(){
 
 /* ═══════════ INFO BAR ═══════════ */
 function updateInfoBar(blocksToShow,endDate,takt,lead,done,total,pct){
-  const daysLeft=diff(TODAY,endDate);
   const blockLabel = blocksToShow.length===1
     ? `<strong>${blocksToShow[0].label}</strong> (${blocksToShow[0].sub}) · N=<strong>L${blocksToShow[0].N}</strong>`
     : `<strong>${blocksToShow.length} blocks</strong>: ${blocksToShow.map(b=>b.label).join(', ')}`;
   document.getElementById('info-bar').innerHTML=`
     <div class="info-item">Block ${blockLabel}</div>
-    <div class="info-item">Completion: <strong>${fmt(endDate)}</strong> · <strong>${daysLeft}</strong> days / <strong>${Math.ceil(daysLeft/7)}</strong> weeks</div>
-    <div class="info-item">Takt <strong>${takt}d/level</strong> · Lead <strong>N-${lead}</strong></div>
+    <div class="info-item">Anchored to actual progress as of today — not a fixed completion date; remaining levels forecast forward at <strong>${takt}d/level</strong> takt</div>
     <div class="info-item">Progress: <strong>${done}/${total}</strong> level-cells (<strong>${pct}%</strong>)</div>
     <div class="info-item" style="color:#f59e0b">▼ = current week</div>
   `;
@@ -2484,42 +2542,41 @@ document.addEventListener('mousemove',e=>{
 });
 
 /* ═══════════ EXCEL EXPORT ═══════════ */
-function exportAllBlocks(){
-  if(typeof XLSX==='undefined'){alert('SheetJS not loaded yet. Please wait and try again.');return;}
+async function exportAllBlocks(){
+  if(typeof ExcelJS==='undefined'){alert('ExcelJS not loaded yet. Please wait and try again.');return;}
 
-  const wb = XLSX.utils.book_new();
-
-  // ── Sheet 1: Progress Summary (all blocks) ──
-  const summaryRows=[['Block','Trade','Group','Max Level (N)','Level Done','Remaining','Progress %','Site Notes','Last Updated']];
+  const wb = new ExcelJS.Workbook();
   const exportDate=new Date().toLocaleDateString('en-SG',{day:'2-digit',month:'short',year:'numeric'});
+
+  // ── Sheet 1: Progress Summary (all blocks) — READ ONLY REPORT, not for re-import.
+  //    Use the "Import Template" sheet to update progress and re-import.
+  const wsSummary=wb.addWorksheet('Progress Summary');
+  wsSummary.columns=[{width:14},{width:22},{width:12},{width:12},{width:12},{width:12},{width:11},{width:14},{width:50},{width:14}];
+  xlHeaderRow(wsSummary,['Block','Trade','Group','Max Level (N)','Level Done','Remaining','Progress %','Status','Site Notes','Last Updated']);
   BLOCKS.forEach(bk=>{
-    let lastGrp='';
     TRADES.forEach(tr=>{
       if(NA_402C.has(tr.id)&&bk.id==='402C') return;
       const done=Math.min(CURRENT[bk.id][tr.id]||0,bk.N);
       const rem=bk.N-done;
       const pct=Math.round(done/bk.N*100);
       const note=NOTES[bk.id][tr.id]||'';
-      summaryRows.push([bk.label+' ('+bk.sub+')',tr.name,tr.grp,bk.N,done,rem,pct+'%',note,exportDate]);
+      const row=wsSummary.addRow([bk.label+' ('+bk.sub+')',tr.name,tr.grp,bk.N,done,rem,pct/100,xlProgressStatusLabel(pct),note,exportDate]);
+      row.getCell(7).numFmt='0%';
+      xlApplyColor(row.getCell(7),xlPctColorKey(pct));
+      xlApplyColor(row.getCell(8),xlPctColorKey(pct));
     });
-    summaryRows.push(['','','','','','','','','']); // blank spacer row between blocks
+    wsSummary.addRow([]); // blank spacer row between blocks
   });
-  const wsSummary=XLSX.utils.aoa_to_sheet(summaryRows);
-  // column widths
-  wsSummary['!cols']=[{wch:14},{wch:22},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:50},{wch:14}];
-  // freeze header row
-  wsSummary['!freeze']={xSplit:0,ySplit:1};
-  XLSX.utils.book_append_sheet(wb,wsSummary,'Progress Summary');
+  wsSummary.views=[{state:'frozen',ySplit:1}];
 
-  // ── Sheet 2+: One sheet per block ──
+  // ── Sheet 2+: One sheet per block — also READ ONLY (see Import Template to update) ──
   BLOCKS.forEach(bk=>{
-    const rows=[
-      ['Takt Plan Progress — Block: '+bk.label+' ('+bk.sub+')',null,null,null,null,null,null,null],
-      ['Exported: '+exportDate,null,null,null,null,null,null,null],
-      [],
-      ['Trade','Group','Max Level (N)','Level Done','Remaining Levels','Progress %','Complete?','Site Notes']
-    ];
-    let lastGrp='';
+    const ws=wb.addWorksheet('Block '+bk.id);
+    ws.columns=[{width:22},{width:12},{width:13},{width:13},{width:16},{width:11},{width:14},{width:10},{width:55}];
+    ws.mergeCells('A1:I1'); ws.getCell('A1').value='Takt Plan Progress — Block: '+bk.label+' ('+bk.sub+')'; ws.getCell('A1').font={bold:true,size:13};
+    ws.mergeCells('A2:I2'); ws.getCell('A2').value='Exported: '+exportDate+'  ·  This sheet is a read-only report. To update progress, edit the "Import Template" sheet and re-import.'; ws.getCell('A2').font={italic:true,color:{argb:'FF6B7280'}};
+    ws.addRow([]);
+    xlHeaderRow(ws,['Trade','Group','Max Level (N)','Level Done','Remaining Levels','Progress %','Status','Complete?','Site Notes']);
     TRADES.forEach(tr=>{
       if(NA_402C.has(tr.id)&&bk.id==='402C') return;
       const done=Math.min(CURRENT[bk.id][tr.id]||0,bk.N);
@@ -2527,111 +2584,130 @@ function exportAllBlocks(){
       const pct=Math.round(done/bk.N*100);
       const note=NOTES[bk.id][tr.id]||'';
       const isComplete=done>=bk.N;
-      rows.push([tr.name,tr.grp,bk.N,done,rem,pct+'%',isComplete?'Yes':'No',note]);
+      const row=ws.addRow([tr.name,tr.grp,bk.N,done,rem,pct/100,xlProgressStatusLabel(pct),isComplete?'Yes':'No',note]);
+      row.getCell(6).numFmt='0%';
+      xlApplyColor(row.getCell(6),xlPctColorKey(pct));
+      xlApplyColor(row.getCell(7),xlPctColorKey(pct));
+      xlApplyColor(row.getCell(8),isComplete?'green':'gray');
     });
-    const ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=[{wch:22},{wch:12},{wch:13},{wch:13},{wch:16},{wch:13},{wch:10},{wch:55}];
-    ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:7}},{s:{r:1,c:0},e:{r:1,c:7}}];
-    XLSX.utils.book_append_sheet(wb,ws,'Block '+bk.id);
+    ws.views=[{state:'frozen',ySplit:4}];
   });
 
-  // ── Sheet: Import Template ──
-  const tplRows=[
-    ['# TAKT PLAN IMPORT TEMPLATE','','','','','',''],
-    ['# Fill in "Level Done" and "Site Notes" columns, then import this file.','','','','','',''],
-    ['# Block column must match exactly: 402A, 402B, 404A, 404B, 406A, 406B, 402C','','','','','',''],
-    ['# Trade ID must match exactly (see column B). Level Done must be a number 0 to N.','','','','','',''],
-    [],
-    ['Block','Trade ID','Trade Name','Max Level (N)','Level Done','Site Notes'],
+  // ── Sheet: Import Template — THE sheet to edit and re-import ──
+  const wsTpl=wb.addWorksheet('Import Template');
+  wsTpl.columns=[{width:9},{width:12},{width:22},{width:15},{width:12},{width:20},{width:55}];
+  wsTpl.mergeCells('A1:G1');
+  wsTpl.getCell('A1').value='✏️ TAKT PLAN — EDIT THIS SHEET, THEN RE-IMPORT';
+  wsTpl.getCell('A1').font={bold:true,size:13,color:{argb:'FF1E40AF'}};
+  wsTpl.getCell('A1').fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFDCEAFB'}};
+  const instructions=[
+    'HOW TO UPDATE PROGRESS:',
+    '  1. Edit ONLY the two columns marked ✏️ EDIT below: "Level Done" and "Site Notes".',
+    '  2. Do NOT edit "Block", "Trade ID", "Trade Name", or "Max Level (N)" — these identify',
+    '     which row updates which trade, and the import will fail to match rows if changed.',
+    '  3. "Status" is shown for reference only — it is NOT read on import, it just updates itself',
+    '     automatically once you change "Level Done".',
+    '  4. Save this file, then use "⬆ Import from Excel" in the app and select it.',
+    '  5. Block must be one of: 402A, 402B, 404A, 404B, 406A, 406B, 402C — do not retype it.',
+    '  6. Level Done must be a whole number from 0 up to "Max Level (N)" for that row.',
   ];
+  instructions.forEach(line=>{ const r=wsTpl.addRow([line]); if(line.startsWith('HOW')) r.font={bold:true}; });
+  wsTpl.addRow([]);
+  const pointerRow=wsTpl.addRow(['🔒 (do not edit)','🔒 (do not edit)','🔒 (do not edit)','🔒 (do not edit)','✏️ EDIT THIS','(reference only)','✏️ EDIT THIS']);
+  pointerRow.eachCell(c=>{ c.font={italic:true,size:10,color:{argb:'FF6B7280'}}; });
+  const hdrRow=xlHeaderRow(wsTpl,['Block','Trade ID','Trade Name','Max Level (N)','Level Done','Status','Site Notes']);
+  xlApplyColor(hdrRow.getCell(5),'blue'); xlApplyColor(hdrRow.getCell(7),'blue'); // highlight the two editable columns
+  const dataStartRow=wsTpl.rowCount+1;
   BLOCKS.forEach(bk=>{
     TRADES.forEach(tr=>{
       if(NA_402C.has(tr.id)&&bk.id==='402C') return;
       const done=Math.min(CURRENT[bk.id][tr.id]||0,bk.N);
+      const pct=Math.round(done/bk.N*100);
       const note=NOTES[bk.id][tr.id]||'';
-      tplRows.push([bk.id,tr.id,tr.name,bk.N,done,note]);
+      const row=wsTpl.addRow([bk.id,tr.id,tr.name,bk.N,done,xlProgressStatusLabel(pct),note]);
+      xlApplyColor(row.getCell(6),xlPctColorKey(pct));
+      row.getCell(5).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFDE7'}}; // pale highlight = editable
+      row.getCell(7).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFDE7'}};
     });
   });
-  const wsTpl=XLSX.utils.aoa_to_sheet(tplRows);
-  wsTpl['!cols']=[{wch:8},{wch:12},{wch:22},{wch:13},{wch:13},{wch:55}];
-  XLSX.utils.book_append_sheet(wb,wsTpl,'Import Template');
+  wsTpl.views=[{state:'frozen',ySplit:wsTpl.rowCount-BLOCKS.reduce((s,bk)=>s+TRADES.filter(tr=>!(NA_402C.has(tr.id)&&bk.id==='402C')).length,0)}];
 
   const today=new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb,`Takt_Progress_${today}.xlsx`);
+  await xlDownload(wb,`Takt_Progress_${today}.xlsx`);
 }
 
 /* ═══════════ EXPORT: LOOK-AHEAD (LPS) REPORT ═══════════ */
-function exportLookahead(){
-  if(typeof XLSX==='undefined'){alert('SheetJS not loaded yet. Please wait and try again.');return;}
+async function exportLookahead(){
+  if(typeof ExcelJS==='undefined'){alert('ExcelJS not loaded yet. Please wait and try again.');return;}
 
   const tasks=collectLookaheadTasks(); // respects current week/block/trade filters
   const todayWk=sowk(TODAY);
   const exportDate=new Date().toLocaleDateString('en-SG',{day:'2-digit',month:'short',year:'numeric'});
-  const wb=XLSX.utils.book_new();
+  const wb=new ExcelJS.Workbook();
 
   // ── Sheet 1: Cover / filter summary ──
   const constrainedCount=tasks.filter(t=>t.constrained).length;
-  const coverRows=[
-    ['LAST PLANNER SYSTEM — 6-WEEK LOOK-AHEAD'],
-    ['Exported: '+exportDate],
-    ['Window: '+fmtS(todayWk)+' \u2192 '+fmtS(add(todayWk,41))],
-    ['Block filter: '+(lpsBlockFilter.size===BLOCKS.length?'All Blocks':[...lpsBlockFilter].join(', '))],
-    ['Weeks included: '+[...lpsWeeksSelected].sort((a,b)=>a-b).map(w=>'W'+w).join(', ')],
-    ['Trades included: '+(lpsTradeFilter.size===TRADES.length?'All':[...lpsTradeFilter].join(', '))],
-    [],
-    ['Total tasks','Ready (unconstrained)','Constrained'],
-    [tasks.length, tasks.length-constrainedCount, constrainedCount],
-  ];
-  const wsCover=XLSX.utils.aoa_to_sheet(coverRows);
-  wsCover['!cols']=[{wch:26},{wch:24},{wch:20}];
-  wsCover['!merges']=[{s:{r:0,c:0},e:{r:0,c:2}}];
-  XLSX.utils.book_append_sheet(wb,wsCover,'Summary');
+  const wsCover=wb.addWorksheet('Summary');
+  wsCover.columns=[{width:26},{width:24},{width:20}];
+  wsCover.mergeCells('A1:C1'); wsCover.getCell('A1').value='LAST PLANNER SYSTEM — 6-WEEK LOOK-AHEAD'; wsCover.getCell('A1').font={bold:true,size:13};
+  wsCover.addRow(['Exported: '+exportDate]);
+  wsCover.addRow(['Window: '+fmtS(todayWk)+' \u2192 '+fmtS(add(todayWk,41))]);
+  wsCover.addRow(['Block filter: '+(lpsBlockFilter.size===BLOCKS.length?'All Blocks':[...lpsBlockFilter].join(', '))]);
+  wsCover.addRow(['Weeks included: '+[...lpsWeeksSelected].sort((a,b)=>a-b).map(w=>'W'+w).join(', ')]);
+  wsCover.addRow(['Trades included: '+(lpsTradeFilter.size===TRADES.length?'All':[...lpsTradeFilter].join(', '))]);
+  wsCover.addRow([]);
+  xlHeaderRow(wsCover,['Total tasks','Ready (unconstrained)','Constrained']);
+  const coverStatRow=wsCover.addRow([tasks.length, tasks.length-constrainedCount, constrainedCount]);
+  xlApplyColor(coverStatRow.getCell(2),'green');
+  xlApplyColor(coverStatRow.getCell(3),constrainedCount>0?'red':'green');
 
   // ── Sheet 2: Full task list, grouped by week ──
-  const taskRows=[['Week','Week Start','Week End','Block','Sub-contractor','Trade','Level','Task Start','Task End','Status','Constraint Note']];
+  const wsTasks=wb.addWorksheet('Look-Ahead Tasks');
+  wsTasks.columns=[{width:6},{width:11},{width:11},{width:9},{width:8},{width:22},{width:7},{width:11},{width:11},{width:13},{width:45}];
+  xlHeaderRow(wsTasks,['Week','Week Start','Week End','Block','Sub-contractor','Trade','Level','Task Start','Task End','Status','Constraint Note']);
   for(let w=1;w<=6;w++){
     const wkStart=add(todayWk,(w-1)*7);
     const list=tasks.filter(t=>t.weekNum===w);
     list.forEach(t=>{
-      taskRows.push([
+      const row=wsTasks.addRow([
         'W'+w, fmtS(wkStart), fmtS(add(wkStart,6)),
         t.bk.label, t.bk.sub, t.tr.name, 'L'+t.lvl,
         fmtS(t.win.start), fmtS(t.win.end),
         t.constrained?'Constrained':'Ready',
         t.constraintNote||''
       ]);
+      xlApplyColor(row.getCell(10),t.constrained?'red':'green');
     });
   }
-  const wsTasks=XLSX.utils.aoa_to_sheet(taskRows);
-  wsTasks['!cols']=[{wch:6},{wch:11},{wch:11},{wch:9},{wch:8},{wch:22},{wch:7},{wch:11},{wch:11},{wch:13},{wch:45}];
-  wsTasks['!freeze']={xSplit:0,ySplit:1};
-  XLSX.utils.book_append_sheet(wb,wsTasks,'Look-Ahead Tasks');
+  wsTasks.views=[{state:'frozen',ySplit:1}];
 
   // ── Sheet 3: Constrained-only (the PPC chase list) ──
-  const constrainedRows=[['Block','Trade','Level','Task Start','Task End','Waiting On']];
-  tasks.filter(t=>t.constrained).forEach(t=>{
-    constrainedRows.push([t.bk.label,t.tr.name,'L'+t.lvl,fmtS(t.win.start),fmtS(t.win.end),t.constraintNote]);
+  const wsConstrained=wb.addWorksheet('Constraints (PPC Chase List)');
+  wsConstrained.columns=[{width:9},{width:22},{width:7},{width:11},{width:11},{width:45}];
+  xlHeaderRow(wsConstrained,['Block','Trade','Level','Task Start','Task End','Waiting On']);
+  const constrainedTasks=tasks.filter(t=>t.constrained);
+  constrainedTasks.forEach(t=>{
+    const row=wsConstrained.addRow([t.bk.label,t.tr.name,'L'+t.lvl,fmtS(t.win.start),fmtS(t.win.end),t.constraintNote]);
+    xlApplyColor(row.getCell(1),'red');
   });
-  if(constrainedRows.length===1) constrainedRows.push(['(none — nothing constrained in this window)']);
-  const wsConstrained=XLSX.utils.aoa_to_sheet(constrainedRows);
-  wsConstrained['!cols']=[{wch:9},{wch:22},{wch:7},{wch:11},{wch:11},{wch:45}];
-  XLSX.utils.book_append_sheet(wb,wsConstrained,'Constraints (PPC Chase List)');
+  if(!constrainedTasks.length) wsConstrained.addRow(['(none — nothing constrained in this window)']);
 
   // ── Sheet 4: Trade Handoff Readiness Score ──
-  const handoffRows=[['Block','Trade','Buffer vs Predecessor','Ready Tasks (next 6w)','Total Tasks (next 6w)','Ready %','Score (1-5)','Rating']];
+  const wsHandoff=wb.addWorksheet('Trade Handoff Readiness');
+  wsHandoff.columns=[{width:9},{width:22},{width:18},{width:16},{width:16},{width:10},{width:11},{width:11}];
+  xlHeaderRow(wsHandoff,['Block','Trade','Buffer vs Predecessor','Ready Tasks (next 6w)','Total Tasks (next 6w)','Ready %','Score (1-5)','Rating']);
   BLOCKS.filter(b=>lpsBlockFilter.has(b.id)).forEach(bk=>{
     computeHandoffReadiness(bk).forEach(h=>{
       if(!lpsTradeFilter.has(h.tr.id)) return;
-      handoffRows.push([bk.label,h.tr.name,h.buffer===null?'—':h.buffer,h.ready,h.total,h.total?h.readyPct+'%':'—',h.score,scoreLabel(h.score)]);
+      const row=wsHandoff.addRow([bk.label,h.tr.name,h.buffer===null?'—':h.buffer,h.ready,h.total,h.total?h.readyPct+'%':'—',h.score,scoreLabel(h.score)]);
+      xlApplyColor(row.getCell(7),xlScoreColorKey(h.score));
+      xlApplyColor(row.getCell(8),xlScoreColorKey(h.score));
     });
   });
-  const wsHandoff=XLSX.utils.aoa_to_sheet(handoffRows);
-  wsHandoff['!cols']=[{wch:9},{wch:22},{wch:18},{wch:16},{wch:16},{wch:10},{wch:11},{wch:11}];
-  wsHandoff['!freeze']={xSplit:0,ySplit:1};
-  XLSX.utils.book_append_sheet(wb,wsHandoff,'Trade Handoff Readiness');
+  wsHandoff.views=[{state:'frozen',ySplit:1}];
 
   const dateStamp=new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb,`LPS_LookAhead_${dateStamp}.xlsx`);
+  await xlDownload(wb,`LPS_LookAhead_${dateStamp}.xlsx`);
 }
 
 /* ═══════════ EXPORT: DASHBOARD REPORT ═══════════ */
@@ -2745,15 +2821,16 @@ function exportViewToPDF(){
   setTimeout(()=>{ document.title = prevTitle; }, 800);
 }
 
-function exportDashboard(){
-  if(typeof XLSX==='undefined'){alert('SheetJS not loaded yet. Please wait and try again.');return;}
+async function exportDashboard(){
+  if(typeof ExcelJS==='undefined'){alert('ExcelJS not loaded yet. Please wait and try again.');return;}
 
   const takt=parseInt(document.getElementById('ctrl-takt').value)||7;
-  const exportDate=new Date().toLocaleDateString('en-SG',{day:'2-digit',month:'short',year:'numeric'});
-  const wb=XLSX.utils.book_new();
+  const wb=new ExcelJS.Workbook();
 
   // ── Sheet 1: Block overview ──
-  const overviewRows=[['Block','Sub-contractor','N (levels)','Level-cells Done','Level-cells Total','Progress %','Look-Ahead Ready % (W4-6)','Top Delay (trade)','Top Delay (levels behind)','Worst Flow Risk','Flow Risk Severity']];
+  const wsOverview=wb.addWorksheet('Dashboard Overview');
+  wsOverview.columns=[{width:9},{width:8},{width:11},{width:15},{width:15},{width:11},{width:14},{width:15},{width:14},{width:20},{width:22},{width:30},{width:14}];
+  xlHeaderRow(wsOverview,['Block','Sub-contractor','N (levels)','Level-cells Done','Level-cells Total','Progress %','Progress Status','Look-Ahead Ready % (W4-6)','Readiness Status','Top Delay (trade)','Top Delay (levels behind)','Worst Flow Risk','Flow Risk Severity']);
   let siteTotalC=0, siteDoneC=0;
   const perBlock=[];
   BLOCKS.forEach(bk=>{
@@ -2769,80 +2846,105 @@ function exportDashboard(){
     const readiness=computeBlockReadiness(bk,4,6);
     const worst=flowRisks.find(r=>r.sev==='critical')||flowRisks[0];
 
-    overviewRows.push([
-      bk.label, bk.sub, bk.N, doneC, totalC, pct+'%',
-      readiness.total?readiness.pct+'%':'—',
+    const row=wsOverview.addRow([
+      bk.label, bk.sub, bk.N, doneC, totalC, pct/100, xlProgressStatusLabel(pct),
+      readiness.total?readiness.pct/100:null, readiness.total?xlProgressStatusLabel(readiness.pct):'—',
       delays[0]?delays[0].tr.name:'—',
       delays[0]?delays[0].delayLevels:0,
       worst?(worst.prevTr.name+' \u2192 '+worst.currTr.name):'—',
       worst?(worst.sev==='critical'?'Critical':'Warning'):'OK'
     ]);
+    row.getCell(6).numFmt='0%'; if(row.getCell(8).value!==null) row.getCell(8).numFmt='0%';
+    xlApplyColor(row.getCell(6),xlPctColorKey(pct));
+    xlApplyColor(row.getCell(7),xlPctColorKey(pct));
+    if(readiness.total){ xlApplyColor(row.getCell(8),xlPctColorKey(readiness.pct)); xlApplyColor(row.getCell(9),xlPctColorKey(readiness.pct)); }
+    xlApplyColor(row.getCell(13),worst?xlSeverityColorKey(worst.sev):'green');
     perBlock.push({bk,delays,flowRisks});
   });
   const sitePct=siteTotalC?Math.round(siteDoneC/siteTotalC*100):0;
-  overviewRows.push([]);
-  overviewRows.push(['SITE-WIDE','','','',siteTotalC,sitePct+'%','','','','','']);
-  const wsOverview=XLSX.utils.aoa_to_sheet(overviewRows);
-  wsOverview['!cols']=[{wch:9},{wch:8},{wch:11},{wch:15},{wch:15},{wch:11},{wch:15},{wch:20},{wch:22},{wch:30},{wch:14}];
-  wsOverview['!freeze']={xSplit:0,ySplit:1};
-  XLSX.utils.book_append_sheet(wb,wsOverview,'Dashboard Overview');
+  wsOverview.addRow([]);
+  const siteRow=wsOverview.addRow(['SITE-WIDE','','','',siteTotalC,sitePct/100,xlProgressStatusLabel(sitePct),'','','','','','']);
+  siteRow.getCell(6).numFmt='0%';
+  xlApplyColor(siteRow.getCell(6),xlPctColorKey(sitePct));
+  xlApplyColor(siteRow.getCell(7),xlPctColorKey(sitePct));
+  wsOverview.views=[{state:'frozen',ySplit:1}];
 
   // ── Sheet 2: All delays (not just top 5), across all blocks ──
-  const delayRows=[['Block','Trade','Actual Level','Expected Level','Delay (levels)','Delay (~weeks)']];
+  const wsDelays=wb.addWorksheet('Delay Detail');
+  wsDelays.columns=[{width:9},{width:22},{width:13},{width:15},{width:15},{width:14}];
+  xlHeaderRow(wsDelays,['Block','Trade','Actual Level','Expected Level','Delay (levels)','Delay (~weeks)']);
+  let anyDelay=false;
   perBlock.forEach(({bk})=>{
     computeBlockDelays(bk,takt).filter(d=>d.delayLevels>0).sort((a,b)=>b.delayLevels-a.delayLevels).forEach(d=>{
-      delayRows.push([bk.label,d.tr.name,d.actual,d.expected,d.delayLevels,d.delayWeeks]);
+      anyDelay=true;
+      const row=wsDelays.addRow([bk.label,d.tr.name,d.actual,d.expected,d.delayLevels,d.delayWeeks]);
+      xlApplyColor(row.getCell(5),d.delayLevels>=5?'red':d.delayLevels>=2?'amber':'blue');
     });
   });
-  if(delayRows.length===1) delayRows.push(['(no trade behind the takt plan in any block)']);
-  const wsDelays=XLSX.utils.aoa_to_sheet(delayRows);
-  wsDelays['!cols']=[{wch:9},{wch:22},{wch:13},{wch:15},{wch:15},{wch:14}];
-  wsDelays['!freeze']={xSplit:0,ySplit:1};
-  XLSX.utils.book_append_sheet(wb,wsDelays,'Delay Detail');
+  if(!anyDelay) wsDelays.addRow(['(no trade behind the takt plan in any block)']);
+  wsDelays.views=[{state:'frozen',ySplit:1}];
 
   // ── Sheet 3: All flow / stacking risks, across all blocks ──
-  const riskRows=[['Block','From Trade','From Level','To Trade','To Level','Buffer (levels)','Severity','Recommendation']];
+  const wsRisks=wb.addWorksheet('Flow Risk Detail');
+  wsRisks.columns=[{width:9},{width:18},{width:11},{width:18},{width:11},{width:14},{width:11},{width:60}];
+  xlHeaderRow(wsRisks,['Block','From Trade','From Level','To Trade','To Level','Buffer (levels)','Severity','Recommendation']);
+  let anyRisk=false;
   perBlock.forEach(({bk,flowRisks})=>{
     flowRisks.forEach(r=>{
-      riskRows.push([bk.label,r.prevTr.name,'L'+r.prevLvl,r.currTr.name,'L'+r.currLvl,r.buffer,r.sev==='critical'?'Critical':'Warning',dashFlowTip(r)]);
+      anyRisk=true;
+      const row=wsRisks.addRow([bk.label,r.prevTr.name,'L'+r.prevLvl,r.currTr.name,'L'+r.currLvl,r.buffer,r.sev==='critical'?'Critical':'Warning',dashFlowTip(r)]);
+      xlApplyColor(row.getCell(7),xlSeverityColorKey(r.sev));
     });
   });
-  if(riskRows.length===1) riskRows.push(['(no flow / stacking risks flagged in any block)']);
-  const wsRisks=XLSX.utils.aoa_to_sheet(riskRows);
-  wsRisks['!cols']=[{wch:9},{wch:18},{wch:11},{wch:18},{wch:11},{wch:14},{wch:11},{wch:60}];
-  wsRisks['!freeze']={xSplit:0,ySplit:1};
-  XLSX.utils.book_append_sheet(wb,wsRisks,'Flow Risk Detail');
+  if(!anyRisk) wsRisks.addRow(['(no flow / stacking risks flagged in any block)']);
+  wsRisks.views=[{state:'frozen',ySplit:1}];
 
   // ── Sheet 4: Trade Handoff Readiness, across all blocks ──
-  const handoffRows2=[['Block','Trade','Buffer vs Predecessor','Ready Tasks (next 6w)','Total Tasks (next 6w)','Ready %','Score (1-5)','Rating']];
+  const wsHandoff2=wb.addWorksheet('Trade Handoff Readiness');
+  wsHandoff2.columns=[{width:9},{width:22},{width:18},{width:16},{width:16},{width:10},{width:11},{width:11}];
+  xlHeaderRow(wsHandoff2,['Block','Trade','Buffer vs Predecessor','Ready Tasks (next 6w)','Total Tasks (next 6w)','Ready %','Score (1-5)','Rating']);
   BLOCKS.forEach(bk=>{
     computeHandoffReadiness(bk).forEach(h=>{
-      handoffRows2.push([bk.label,h.tr.name,h.buffer===null?'—':h.buffer,h.ready,h.total,h.total?h.readyPct+'%':'—',h.score,scoreLabel(h.score)]);
+      const row=wsHandoff2.addRow([bk.label,h.tr.name,h.buffer===null?'—':h.buffer,h.ready,h.total,h.total?h.readyPct+'%':'—',h.score,scoreLabel(h.score)]);
+      xlApplyColor(row.getCell(7),xlScoreColorKey(h.score));
+      xlApplyColor(row.getCell(8),xlScoreColorKey(h.score));
     });
   });
-  const wsHandoff2=XLSX.utils.aoa_to_sheet(handoffRows2);
-  wsHandoff2['!cols']=[{wch:9},{wch:22},{wch:18},{wch:16},{wch:16},{wch:10},{wch:11},{wch:11}];
-  wsHandoff2['!freeze']={xSplit:0,ySplit:1};
-  XLSX.utils.book_append_sheet(wb,wsHandoff2,'Trade Handoff Readiness');
+  wsHandoff2.views=[{state:'frozen',ySplit:1}];
 
   const dateStamp=new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb,`Dashboard_Report_${dateStamp}.xlsx`);
+  await xlDownload(wb,`Dashboard_Report_${dateStamp}.xlsx`);
 }
 
 /* ═══════════ EXPORT: LINE OF BALANCE (LoB) REPORT ═══════════ */
-function exportLoB(){
-  if(typeof XLSX==='undefined'){alert('SheetJS not loaded yet. Please wait and try again.');return;}
+async function exportLoB(){
+  if(typeof ExcelJS==='undefined'){alert('ExcelJS not loaded yet. Please wait and try again.');return;}
 
   const takt=parseInt(document.getElementById('ctrl-takt').value)||7;
   const blocksToShow=BLOCKS.filter(b=>lobBlockFilter.has(b.id));
-  const exportDate=new Date().toLocaleDateString('en-SG',{day:'2-digit',month:'short',year:'numeric'});
-  const wb=XLSX.utils.book_new();
+  const wb=new ExcelJS.Workbook();
 
-  const summaryRows=[['Block','Trades Shown','Crashing (conflicts)','Start-stop wait (workdays)','Start-stop gaps']];
-  const schedRows=[['Block','Trade','Level','Start','End','Type','Waited','Wait (workdays)']];
-  const gapRows=[['Block','Trade','Level','Wait (workdays)','Waiting On','Model Cause','Model Diagnosis & Fix','Actual Cause (site team)']];
-  const crashRows=[['Block','Trade A (predecessor)','Trade B (successor)','Buffer','Detail']];
-  const sumRows=[['Block','Trade','Current Level','Next Level Window','Start-Stop Wait (workdays)','Start-Stop Gaps','Clash']];
+  const wsSummary=wb.addWorksheet('Summary');
+  wsSummary.columns=[{width:9},{width:14},{width:20},{width:24},{width:16}];
+  xlHeaderRow(wsSummary,['Block','Trades Shown','Crashing (conflicts)','Start-stop wait (workdays)','Start-stop gaps']);
+
+  const wsSched=wb.addWorksheet('Full Schedule');
+  wsSched.columns=[{width:9},{width:22},{width:7},{width:11},{width:11},{width:20},{width:9},{width:16}];
+  xlHeaderRow(wsSched,['Block','Trade','Level','Start','End','Type','Waited','Wait (workdays)']);
+
+  const wsGaps=wb.addWorksheet('Start-Stop Gaps');
+  wsGaps.columns=[{width:9},{width:22},{width:7},{width:14},{width:18},{width:16},{width:60},{width:35}];
+  xlHeaderRow(wsGaps,['Block','Trade','Level','Wait (workdays)','Waiting On','Model Cause','Model Diagnosis & Fix','Actual Cause (site team)']);
+
+  const wsCrash=wb.addWorksheet('Crashes');
+  wsCrash.columns=[{width:9},{width:20},{width:20},{width:10},{width:70}];
+  xlHeaderRow(wsCrash,['Block','Trade A (predecessor)','Trade B (successor)','Buffer','Detail']);
+
+  const wsSum=wb.addWorksheet('Trade Summary');
+  wsSum.columns=[{width:9},{width:22},{width:14},{width:24},{width:22},{width:16},{width:45}];
+  xlHeaderRow(wsSum,['Block','Trade','Current Level','Next Level Window','Start-Stop Wait (workdays)','Start-Stop Gaps','Clash']);
+
+  let anySched=false, anyGap=false, anyCrash=false;
 
   blocksToShow.forEach(bk=>{
     const scheds=buildLoBSchedule(bk,takt);
@@ -2851,14 +2953,19 @@ function exportLoB(){
     const critical=computeFlowRisk(bk).filter(r=>r.sev==='critical'&&trades.some(t=>t.id===r.currTr.id));
     const waitStats=lobCountWaits(trades,scheds);
 
-    summaryRows.push([bk.label,trades.length,critical.length,waitStats.days,waitStats.n]);
+    const sumRow=wsSummary.addRow([bk.label,trades.length,critical.length,waitStats.days,waitStats.n]);
+    xlApplyColor(sumRow.getCell(3),critical.length>0?'red':'green');
+    xlApplyColor(sumRow.getCell(4),waitStats.days>=50?'red':waitStats.days>=10?'amber':'green');
 
     trades.forEach(tr=>{
       const ti=TRADES.indexOf(tr);
       for(let lvl=1; lvl<=bk.N; lvl++){
         const w=scheds[ti][lvl];
         if(!w) continue;
-        schedRows.push([bk.label,tr.name,'L'+lvl,fmtS(w.start),fmtS(w.end),w.estimated?'Estimated (complete)':'Forecast',w.waited?'Yes':'No',w.waited?w.waitDays:0]);
+        anySched=true;
+        const row=wsSched.addRow([bk.label,tr.name,'L'+lvl,fmtS(w.start),fmtS(w.end),w.estimated?'Estimated (complete)':'Forecast',w.waited?'Yes':'No',w.waited?w.waitDays:0]);
+        xlApplyColor(row.getCell(6),w.estimated?'gray':'blue');
+        xlApplyColor(row.getCell(7),w.waited?'red':'green');
       }
     });
 
@@ -2873,13 +2980,18 @@ function exportLoB(){
     });
     gaps.sort((a,b)=>b.waitDays-a.waitDays);
     gaps.forEach(g=>{
+      anyGap=true;
       const diag=lobDiagnoseGap(g.tr,g.predTr);
       const key=`${bk.id}_${g.tr.id}_L${g.lvl}`;
-      gapRows.push([bk.label,g.tr.name,'L'+g.lvl,g.waitDays,g.predTr.name,diag.cause,diag.detail,GAP_NOTES[key]||'']);
+      const row=wsGaps.addRow([bk.label,g.tr.name,'L'+g.lvl,g.waitDays,g.predTr.name,diag.cause,diag.detail,GAP_NOTES[key]||'']);
+      xlApplyColor(row.getCell(4),g.waitDays>=20?'red':g.waitDays>=5?'amber':'blue');
+      xlApplyColor(row.getCell(6),diag.cause==='Pace mismatch'?'amber':'blue');
     });
 
     critical.forEach(r=>{
-      crashRows.push([bk.label,r.prevTr.name,r.currTr.name,r.buffer,dashFlowTip(r)]);
+      anyCrash=true;
+      const row=wsCrash.addRow([bk.label,r.prevTr.name,r.currTr.name,r.buffer,dashFlowTip(r)]);
+      xlApplyColor(row.getCell(4),'red');
     });
 
     trades.forEach(tr=>{
@@ -2890,42 +3002,24 @@ function exportLoB(){
       const nextWin=scheds[ti][doneLvl+1];
       const asSuccessor=critical.find(r=>r.currTr.id===tr.id);
       const asPredecessor=critical.find(r=>r.prevTr.id===tr.id);
-      let clash='None';
-      if(asSuccessor) clash=`vs ${asSuccessor.prevTr.name} (caught up, buffer ${asSuccessor.buffer})`;
-      else if(asPredecessor) clash=`vs ${asPredecessor.currTr.name} (being caught up to, buffer ${asPredecessor.buffer})`;
-      sumRows.push([bk.label,tr.name,'L'+doneLvl+'/'+bk.N,nextWin?fmtS(nextWin.start)+' – '+fmtS(nextWin.end):'Complete',waitDaysTotal,waitLevels.length,clash]);
+      let clash='None', clashColor='green';
+      if(asSuccessor){ clash=`vs ${asSuccessor.prevTr.name} (caught up, buffer ${asSuccessor.buffer})`; clashColor='red'; }
+      else if(asPredecessor){ clash=`vs ${asPredecessor.currTr.name} (being caught up to, buffer ${asPredecessor.buffer})`; clashColor='red'; }
+      const row=wsSum.addRow([bk.label,tr.name,'L'+doneLvl+'/'+bk.N,nextWin?fmtS(nextWin.start)+' – '+fmtS(nextWin.end):'Complete',waitDaysTotal,waitLevels.length,clash]);
+      xlApplyColor(row.getCell(5),waitDaysTotal>=20?'red':waitDaysTotal>=5?'amber':'green');
+      xlApplyColor(row.getCell(7),clashColor);
     });
   });
 
-  const wsSummary=XLSX.utils.aoa_to_sheet(summaryRows);
-  wsSummary['!cols']=[{wch:9},{wch:14},{wch:20},{wch:24},{wch:16}];
-  XLSX.utils.book_append_sheet(wb,wsSummary,'Summary');
+  if(!anySched) wsSched.addRow(['(no data for the current filters)']);
+  if(!anyGap) wsGaps.addRow(['(no start-stop gaps for the current filters)']);
+  if(!anyCrash) wsCrash.addRow(['(no sequence conflicts for the current filters)']);
 
-  if(schedRows.length===1) schedRows.push(['(no data for the current filters)']);
-  const wsSched=XLSX.utils.aoa_to_sheet(schedRows);
-  wsSched['!cols']=[{wch:9},{wch:22},{wch:7},{wch:11},{wch:11},{wch:20},{wch:9},{wch:16}];
-  wsSched['!freeze']={xSplit:0,ySplit:1};
-  XLSX.utils.book_append_sheet(wb,wsSched,'Full Schedule');
-
-  if(gapRows.length===1) gapRows.push(['(no start-stop gaps for the current filters)']);
-  const wsGaps=XLSX.utils.aoa_to_sheet(gapRows);
-  wsGaps['!cols']=[{wch:9},{wch:22},{wch:7},{wch:14},{wch:18},{wch:16},{wch:60},{wch:35}];
-  wsGaps['!freeze']={xSplit:0,ySplit:1};
-  XLSX.utils.book_append_sheet(wb,wsGaps,'Start-Stop Gaps');
-
-  if(crashRows.length===1) crashRows.push(['(no sequence conflicts for the current filters)']);
-  const wsCrash=XLSX.utils.aoa_to_sheet(crashRows);
-  wsCrash['!cols']=[{wch:9},{wch:20},{wch:20},{wch:10},{wch:70}];
-  XLSX.utils.book_append_sheet(wb,wsCrash,'Crashes');
-
-  const wsSum=XLSX.utils.aoa_to_sheet(sumRows);
-  wsSum['!cols']=[{wch:9},{wch:22},{wch:14},{wch:24},{wch:22},{wch:16},{wch:45}];
-  wsSum['!freeze']={xSplit:0,ySplit:1};
-  XLSX.utils.book_append_sheet(wb,wsSum,'Trade Summary');
+  [wsSummary,wsSched,wsGaps,wsCrash,wsSum].forEach(ws=>{ ws.views=[{state:'frozen',ySplit:1}]; });
 
   const dateStamp2=new Date().toISOString().slice(0,10);
   const blockTag=blocksToShow.length===1?blocksToShow[0].id:blocksToShow.length+'blocks';
-  XLSX.writeFile(wb,`LoB_${blockTag}_${dateStamp2}.xlsx`);
+  await xlDownload(wb,`LoB_${blockTag}_${dateStamp2}.xlsx`);
 }
 
 /* ═══════════ EXCEL IMPORT ═══════════ */
@@ -3003,7 +3097,15 @@ function parseImportFile(file){
       // Try "Import Template" sheet first, then first sheet
       let wsName=wb.SheetNames.find(n=>n==='Import Template')||wb.SheetNames[0];
       const ws=wb.Sheets[wsName];
-      const raw=XLSX.utils.sheet_to_json(ws,{defval:'',raw:true});
+
+      // The template has instructional "#" comment rows above the real header row, so the
+      // header can't be assumed to be row 1 — sheet_to_json() defaults to using row 1 as
+      // field names, which would silently produce zero valid rows for this exact template
+      // structure. Locate the real header row (the one whose first cell is "Block") first.
+      const rawGrid=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      let headerRowIdx=rawGrid.findIndex(r=>String(r[0]||'').trim()==='Block');
+      if(headerRowIdx===-1) headerRowIdx=0; // fallback: assume no comment rows
+      const raw=XLSX.utils.sheet_to_json(ws,{defval:'',raw:true,range:headerRowIdx});
 
       // Find valid data rows — skip comment rows (start with #) and blank rows
       const rows=raw.filter(r=>{

@@ -25,10 +25,12 @@ body.dark .chart-card,body.dark .dash-card,body.dark .lps-ctrl-block,body.dark .
 html,body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;min-height:100vh}
 
 /* ── TOP BAR ── */
-.topbar{background:var(--surface);border-bottom:1px solid var(--border2);padding:0 24px;display:flex;align-items:stretch;position:sticky;top:0;z-index:200;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-.logo{font-size:15px;font-weight:700;color:var(--text);padding:0 20px 0 0;margin-right:16px;border-right:1px solid var(--border);display:flex;align-items:center;letter-spacing:-.3px;white-space:nowrap}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border2);padding:0 24px;display:flex;align-items:stretch;position:sticky;top:0;z-index:200;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+.topbar::-webkit-scrollbar{height:5px}
+.topbar::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+.logo{font-size:15px;font-weight:700;color:var(--text);padding:0 20px 0 0;margin-right:16px;border-right:1px solid var(--border);display:flex;align-items:center;letter-spacing:-.3px;white-space:nowrap;flex-shrink:0}
 .logo span{color:var(--accent)}
-.block-tabs{display:flex;align-items:stretch}
+.block-tabs{display:flex;align-items:stretch;flex-shrink:0}
 .btab{font-family:var(--font);font-size:12px;font-weight:500;padding:0 16px;cursor:pointer;color:var(--muted);border:none;border-bottom:3px solid transparent;background:none;transition:all .15s;white-space:nowrap;height:50px;display:flex;align-items:center;flex-direction:column;justify-content:center;gap:1px}
 .btab:hover{color:var(--text);background:var(--surface2)}
 .btab.on{color:var(--accent);border-bottom-color:var(--accent);background:rgba(30,64,175,.04)}
@@ -38,11 +40,11 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--font);font-si
 
 /* view toggle */
 .view-sep{width:1px;background:var(--border2);margin:10px 12px}
-.vtab{font-family:var(--font);font-size:15px;font-weight:700;padding:0 20px;margin:3px 3px;cursor:pointer;color:var(--muted);border:none;border-radius:10px;background:none;transition:all .15s;height:44px;align-self:center;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.vtab{font-family:var(--font);font-size:15px;font-weight:700;padding:0 20px;margin:3px 3px;cursor:pointer;color:var(--muted);border:none;border-radius:10px;background:none;transition:all .15s;height:44px;align-self:center;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;flex-shrink:0}
 .vtab:hover{color:var(--text);background:var(--surface2)}
 .vtab.on{color:#fff;background:linear-gradient(135deg,#1e40af,#1e3a8a);box-shadow:0 2px 8px rgba(30,64,175,.35)}
 
-.topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px;padding-left:14px;border-left:1px solid var(--border)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px;padding-left:14px;border-left:1px solid var(--border);flex-shrink:0}
 .pill{font-size:10px;background:var(--surface2);border:1px solid var(--border2);border-radius:20px;padding:4px 10px;color:var(--muted);font-family:var(--mono);white-space:nowrap}
 .print-btn{font-size:10px;padding:5px 12px;cursor:pointer;border:1px solid var(--border2);background:var(--surface2);border-radius:5px;color:var(--muted);font-family:var(--font)}
 .print-btn:hover{border-color:var(--accent);color:var(--accent)}
@@ -469,6 +471,7 @@ table.wk-table tbody tr:last-child td{border-bottom:none}
   <button class="vtab" id="vt-lps" onclick="switchView('lookahead')">🗓️ Look-Ahead (LPS)</button>
   <button class="vtab" id="vt-dash" onclick="switchView('dashboard')">🚦 Dashboard</button>
   <button class="vtab" id="vt-lob" onclick="switchView('lob')">📈 LoB</button>
+  <button class="vtab" id="vt-flow2" onclick="switchView('workflow')">🔄 How to Update</button>
   <div class="topbar-right">
     <span class="pill" id="today-pill"></span>
     <span class="pill" id="data-source-pill" style="color:#15803d;border-color:#bbf7d0;background:#f0fdf4"></span>
@@ -590,6 +593,14 @@ const NOTES = {
 };
 
 const NA_402C = new Set(['plaster','skim','wt','ft','wtp','ftp','tbx','bc','fc','putty','glz','vinyl','upvc']);
+
+// "Level Done" is a single cumulative number (highest level reached) — it can't represent a
+// crew that worked out of sequence (e.g. did L5 before L3). This app doesn't model per-level
+// completion state, so it can't compute around gaps automatically. Instead, SKIPPED is a plain
+// text annotation field per block/trade for recording "levels not actually done yet despite
+// the cumulative count" — a manual record, not something the app calculates or reasons about.
+const SKIPPED = {};
+BLOCKS.forEach(bk=>{ SKIPPED[bk.id]={}; TRADES.forEach(tr=>{ SKIPPED[bk.id][tr.id]=''; }); });
 
 // Trades with no row in the 6-Jul-2026 source xlsx — still sitting on the older 23-Apr baseline.
 // Comparing them against freshly-updated neighbours in the delay/flow-risk analysis produces
@@ -864,6 +875,12 @@ let lpsBlockFilter=new Set(BLOCKS.map(b=>b.id));
 
 // Line of Balance (LoB) state
 let lobBlockFilter=new Set(['402A']);
+
+// Target completion date for the Dashboard's projected-delay metric only — separate from,
+// and not used by, the Matrix/Flow/Look-Ahead/LoB scheduling engines (which are all anchored
+// to today's actual progress, not a fixed target date).
+let dashTargetDate='2026-12-31';
+function dashSetTargetDate(v){ dashTargetDate=v; renderDashboard(); }
 let lobTradeFilter=new Set(TRADES.map(t=>t.id));
 
 /* ═══════════ BLOCK TABS ═══════════ */
@@ -907,6 +924,7 @@ function switchView(v){
   document.getElementById('vt-lps').classList.toggle('on',v==='lookahead');
   document.getElementById('vt-dash').classList.toggle('on',v==='dashboard');
   document.getElementById('vt-lob').classList.toggle('on',v==='lob');
+  document.getElementById('vt-flow2').classList.toggle('on',v==='workflow');
   const blockTabs=document.getElementById('block-tabs');
   if(blockTabs) blockTabs.style.display=(v==='data')?'flex':'none';
   document.getElementById('status-legend-mx').style.display=v==='matrix'?'flex':'none';
@@ -952,7 +970,8 @@ function saveToLS(){
     // Deep-clone to capture current values at save time
     const snapshot={
       CURRENT: JSON.parse(JSON.stringify(CURRENT)),
-      NOTES:   JSON.parse(JSON.stringify(NOTES))
+      NOTES:   JSON.parse(JSON.stringify(NOTES)),
+      SKIPPED: JSON.parse(JSON.stringify(SKIPPED))
     };
     localStorage.setItem(LS_KEY, JSON.stringify(snapshot));
   }catch(e){ console.warn('saveToLS failed:',e); }
@@ -978,6 +997,14 @@ function loadFromLS(){
       TRADES.forEach(tr=>{
         if(tr.id in d.NOTES[bk.id]){
           NOTES[bk.id][tr.id]=String(d.NOTES[bk.id][tr.id]||'');
+        }
+      });
+    });
+    BLOCKS.forEach(bk=>{
+      if(!d.SKIPPED||!d.SKIPPED[bk.id]) return;
+      TRADES.forEach(tr=>{
+        if(tr.id in d.SKIPPED[bk.id]){
+          SKIPPED[bk.id][tr.id]=String(d.SKIPPED[bk.id][tr.id]||'');
         }
       });
     });
@@ -1051,6 +1078,23 @@ async function xlDownload(wb,filename){
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
+// Apply real Excel conditional-formatting rules (not a one-time fill) to a list of "Progress %"
+// cell references, so that when a value changes via formula — e.g. because someone edited
+// "Level Done" directly in the Import Template — the color updates itself live in Excel too,
+// with no need to reopen the app or re-run the export.
+function applyPctConditionalFormat(ws,cellRefs){
+  if(!cellRefs.length) return;
+  const ref=cellRefs.join(' ');
+  ws.addConditionalFormatting({
+    ref,
+    rules:[
+      {type:'cellIs',operator:'greaterThanOrEqual',formulae:['0.8'],priority:1,style:{fill:XL_STYLE.green.fill,font:XL_STYLE.green.font}},
+      {type:'cellIs',operator:'greaterThanOrEqual',formulae:['0.5'],priority:2,style:{fill:XL_STYLE.blue.fill,font:XL_STYLE.blue.font}},
+      {type:'cellIs',operator:'greaterThanOrEqual',formulae:['0.2'],priority:3,style:{fill:XL_STYLE.amber.fill,font:XL_STYLE.amber.font}},
+      {type:'cellIs',operator:'lessThan',formulae:['0.2'],priority:4,style:{fill:XL_STYLE.red.fill,font:XL_STYLE.red.font}},
+    ]
+  });
+}
 
 function renderData(){
   const bk=BLOCKS.find(b=>b.id===activeBlock);
@@ -1078,7 +1122,8 @@ function renderData(){
       <th style="text-align:center;min-width:130px">Level Done <span style="font-weight:400;opacity:.6">(editable)</span></th>
       <th style="text-align:center;min-width:80px">Remaining</th>
       <th style="text-align:center;min-width:90px">Progress</th>
-      <th style="text-align:left;min-width:340px;white-space:normal">Site Notes <span style="font-weight:400;opacity:.6">(editable)</span></th>
+      <th style="text-align:left;min-width:150px;white-space:normal">Skipped Levels <span style="font-weight:400;opacity:.6">(optional, e.g. "3,7")</span></th>
+      <th style="text-align:left;min-width:300px;white-space:normal">Site Notes <span style="font-weight:400;opacity:.6">(editable)</span></th>
     </tr></thead><tbody>`;
 
   let lastGrp='';
@@ -1086,12 +1131,13 @@ function renderData(){
     if(NA_402C.has(tr.id)&&bk.id==='402C') return;
     if(tr.grp!==lastGrp){
       lastGrp=tr.grp;
-      tbl+=`<tr class="dt-grp"><td colspan="6">${tr.grp}</td></tr>`;
+      tbl+=`<tr class="dt-grp"><td colspan="7">${tr.grp}</td></tr>`;
     }
     const done=Math.min(CURRENT[bk.id][tr.id]||0,bk.N);
     const remaining=bk.N-done;
     const pct=Math.round(done/bk.N*100);
     const note=NOTES[bk.id][tr.id]||'';
+    const skipped=SKIPPED[bk.id][tr.id]||'';
     const isComplete=done>=bk.N;
     const pc=pctColors(pct);
     const rowBg=isComplete?'rgba(62,207,142,0.05)':'#fff';
@@ -1122,6 +1168,11 @@ function renderData(){
           <span class="pct-label" style="color:${pc.c};background:${pc.bg}">${pct}%</span>
           <div class="pct-track"><div class="pct-fill" style="width:${pct}%;background:${tr.color}"></div></div>
         </div>
+      </td>
+      <td style="padding:5px 8px;white-space:normal">
+        <input type="text" class="note-input" id="skip_${bk.id}_${tr.id}"
+          placeholder="none" value="${skipped.replace(/"/g,'&quot;')}"
+          style="min-width:120px" title="Level count is cumulative — if the crew worked out of order, note which levels are NOT actually complete yet">
       </td>
       <td style="padding:5px 8px;white-space:normal">
         <textarea class="note-input" id="note_${bk.id}_${tr.id}" rows="2"
@@ -1173,16 +1224,18 @@ function spinLevel(bkId,trId,delta,maxN,newVal){
 function applyChanges(){
   const bk=BLOCKS.find(b=>b.id===activeBlock);
 
-  // ── 1. Read every spinner + textarea and write into CURRENT / NOTES ──
+  // ── 1. Read every spinner + textarea and write into CURRENT / NOTES / SKIPPED ──
   TRADES.forEach(tr=>{
     if(NA_402C.has(tr.id)&&bk.id==='402C') return;
     const inp   = document.getElementById('lvl_' +bk.id+'_'+tr.id);
     const noteEl= document.getElementById('note_'+bk.id+'_'+tr.id);
+    const skipEl= document.getElementById('skip_'+bk.id+'_'+tr.id);
     if(inp){
       const v=Math.max(0,Math.min(bk.N,parseInt(inp.value)||0));
       CURRENT[bk.id][tr.id]=v;
     }
     if(noteEl) NOTES[bk.id][tr.id]=noteEl.value.trim();
+    if(skipEl) SKIPPED[bk.id][tr.id]=skipEl.value.trim();
   });
 
   // ── 2. Persist ──
@@ -1249,6 +1302,7 @@ function resetBlock(){
   if(ORIGINAL_NOTES[bk.id]){
     Object.keys(NOTES[bk.id]).forEach(k=>{NOTES[bk.id][k]=ORIGINAL_NOTES[bk.id][k]||'';});
   }
+  Object.keys(SKIPPED[bk.id]).forEach(k=>{SKIPPED[bk.id][k]='';});
   saveToLS();
   _mxDirty=true;
   _flDirty=true;
@@ -1268,6 +1322,8 @@ function renderCurrent(){
     renderDashboard();
   } else if(activeView==='lob'){
     renderLoB();
+  } else if(activeView==='workflow'){
+    renderWorkflow();
   } else {
     renderData();
   }
@@ -1605,6 +1661,28 @@ function freshTradesFor(bk){
 // current pace rather than the fixed calendar master plan — which stays useful for the
 // long-range Matrix/Flow views, but (as the 0-task Look-Ahead bug showed) doesn't track
 // real day-to-day site progress closely enough to call individual trades "late" against.
+// Projects when a block will actually finish at its CURRENT real pace — using the same
+// forward-anchored engine (buildForwardSchedule) that powers Look-Ahead/Dashboard/LoB, which
+// already accounts for real progress-to-date, each trade's takt cadence, and predecessor
+// cascading. The block's overall finish = whichever not-yet-complete trade's last level
+// finishes latest. Compared against a target completion date to get a projected delay in days
+// (positive = late, negative = ahead of target, null = block already fully complete).
+function computeBlockProjectedDelay(bk,takt,targetDate){
+  const cur=CURRENT[bk.id]||{};
+  const scheds=buildForwardSchedule(bk,takt);
+  let projectedFinish=null;
+  appTradesFor(bk).forEach(tr=>{
+    const ti=TRADES.indexOf(tr);
+    const doneLvl=Math.min(cur[tr.id]||0,bk.N);
+    if(doneLvl>=bk.N) return; // this trade already fully done — doesn't push out the finish
+    const lastLvlSched=scheds[ti][bk.N];
+    if(lastLvlSched && (!projectedFinish || lastLvlSched.end>projectedFinish)) projectedFinish=lastLvlSched.end;
+  });
+  if(!projectedFinish) return {complete:true,projectedFinish:null,delayDays:null};
+  const delayDays=diff(targetDate,projectedFinish);
+  return {complete:false,projectedFinish,delayDays};
+}
+
 function computeBlockDelays(bk,takt){
   const cur=CURRENT[bk.id]||{};
   const trades=freshTradesFor(bk);
@@ -2021,7 +2099,7 @@ function flowGaugeChartHtml(flowRisks){
   </table>`;
 }
 
-function dashBlockCardHtml(bk,pct,doneC,totalC,delays,flowRisks,readiness){
+function dashBlockCardHtml(bk,pct,doneC,totalC,delays,flowRisks,readiness,projDelay){
   const pctColor = pct>=80?'#15803d':pct>=50?'#1e40af':pct>=20?'#b45309':'#dc2626';
   const critCount = flowRisks.filter(r=>r.sev==='critical').length;
   const critBanner = critCount ? `<div class="crit-banner">⛔ ${critCount} SEQUENCE CONFLICT${critCount>1?'S':''} — needs immediate attention</div>` : '';
@@ -2038,6 +2116,10 @@ function dashBlockCardHtml(bk,pct,doneC,totalC,delays,flowRisks,readiness){
   const readinessBadge = readiness.total
     ? `<span class="dash-readiness-badge" style="background:${rCol}22;color:${rCol}">🎯 W4-6 Ready: ${readiness.pct}% (${readiness.ready}/${readiness.total})</span>`
     : `<span class="dash-readiness-badge" style="background:var(--surface2);color:var(--muted)">🎯 W4-6: nothing scheduled</span>`;
+  const dCol = projDelay.complete?'#15803d':(projDelay.delayDays>14?'#dc2626':projDelay.delayDays>0?'#b45309':'#15803d');
+  const delayBadge = projDelay.complete
+    ? `<span class="dash-readiness-badge" style="background:${dCol}22;color:${dCol}">📅 Complete</span>`
+    : `<span class="dash-readiness-badge" style="background:${dCol}22;color:${dCol}">📅 ${projDelay.delayDays>0?`${projDelay.delayDays}d LATE`:projDelay.delayDays<0?`${Math.abs(projDelay.delayDays)}d AHEAD`:'On target'} (finish ${fmtS(projDelay.projectedFinish)})</span>`;
   return `<div class="dash-card${critCount?' dash-card-critical':''}">
     ${critBanner}
     <div class="dash-card-topstrip" style="background:${pctColor}"></div>
@@ -2049,7 +2131,7 @@ function dashBlockCardHtml(bk,pct,doneC,totalC,delays,flowRisks,readiness){
       <div class="dash-ring" style="--pct:${pct};--col:${pctColor}"><span>${pct}%</span></div>
     </div>
     <div class="dash-trade-strip">${stripSegs}</div>
-    <div style="padding:10px 18px 0">${readinessBadge}</div>
+    <div style="padding:10px 18px 0;display:flex;gap:8px;flex-wrap:wrap">${readinessBadge}${delayBadge}</div>
     <div class="dash-card-body">
       <div class="dash-subpanel dash-subpanel-delay">
         <div class="dash-subpanel-hdr">🕐 DELAYS <span class="dash-subpanel-cnt">${delays.length}</span></div>
@@ -2063,7 +2145,7 @@ function dashBlockCardHtml(bk,pct,doneC,totalC,delays,flowRisks,readiness){
   </div>`;
 }
 
-function dashOverviewRowHtml(bk,pct,delays,flowRisks,readiness){
+function dashOverviewRowHtml(bk,pct,delays,flowRisks,readiness,projDelay){
   const pctColor = pct>=80?'#15803d':pct>=50?'#1e40af':pct>=20?'#b45309':'#dc2626';
   const topDelay = delays[0] ? `<span class="ov-badge ov-badge-delay">🕐 ${delays[0].tr.short} −${delays[0].delayLevels} lvl</span>` : `<span class="ov-badge ov-badge-none">✓ On pace</span>`;
   const worstRisk = flowRisks.find(r=>r.sev==='critical') || flowRisks[0];
@@ -2072,10 +2154,16 @@ function dashOverviewRowHtml(bk,pct,delays,flowRisks,readiness){
   const readinessCell = readiness.total
     ? `<span class="wk-dot" style="background:${rCol}"></span><span style="font-family:var(--mono);font-weight:800;color:${rCol}">${readiness.pct}%</span> <span style="color:var(--faint);font-size:11px">(${readiness.ready}/${readiness.total})</span>`
     : `<span class="ov-badge ov-badge-none">— none scheduled</span>`;
+  const delayCell = projDelay.complete
+    ? `<span class="ov-badge ov-badge-none">✓ Complete</span>`
+    : (()=>{ const d=projDelay.delayDays; const col=d>14?'#dc2626':d>0?'#b45309':'#15803d';
+        const label=d>0?`${d}d LATE`:d<0?`${Math.abs(d)}d AHEAD`:'On target';
+        return `<span style="font-family:var(--mono);font-weight:800;color:${col}">${label}</span> <span style="color:var(--faint);font-size:11px">(${fmtS(projDelay.projectedFinish)})</span>`; })();
   return `<tr>
     <td class="ov-block">${bk.label} <span style="color:var(--faint);font-weight:400;font-size:13.5px">(${bk.sub})</span></td>
     <td><div class="ov-progress-wrap"><div class="ov-progress-track"><div class="ov-progress-fill" style="width:${pct}%;background:${pctColor}"></div></div><span class="ov-progress-pct" style="color:${pctColor}">${pct}%</span></div></td>
     <td>${readinessCell}</td>
+    <td>${delayCell}</td>
     <td>${topDelay}</td>
     <td>${topRisk}</td>
   </tr>`;
@@ -2111,10 +2199,12 @@ function blockCompareChartHtml(blockStats){
 
 function renderDashboard(){
   const takt=parseInt(document.getElementById('ctrl-takt').value)||7;
+  const targetDate=new Date(dashTargetDate);
 
   let siteTotalC=0, siteDoneC=0, allRisks=0, allDelayed=0, allCritical=0;
   let readyTotal=0, readySum=0;
   let cards='', overviewRows='', blockStats=[];
+  let worstDelayDays=null, worstDelayBlock=null;
   BLOCKS.forEach(bk=>{
     const trades=appTradesFor(bk);
     const cur=CURRENT[bk.id]||{};
@@ -2126,25 +2216,37 @@ function renderDashboard(){
     const delays=computeBlockDelays(bk,takt).filter(d=>d.delayLevels>0).sort((a,b)=>b.delayLevels-a.delayLevels).slice(0,5);
     const flowRisks=computeFlowRisk(bk);
     const readiness=computeBlockReadiness(bk,4,6);
+    const projDelay=computeBlockProjectedDelay(bk,takt,targetDate);
     allRisks+=flowRisks.length;
     allDelayed+=delays.length;
     allCritical+=flowRisks.filter(r=>r.sev==='critical').length;
     readyTotal+=readiness.total; readySum+=readiness.ready;
+    if(!projDelay.complete && (worstDelayDays===null || projDelay.delayDays>worstDelayDays)){
+      worstDelayDays=projDelay.delayDays; worstDelayBlock=bk;
+    }
 
     blockStats.push({bk,pct});
-    overviewRows+=dashOverviewRowHtml(bk,pct,delays,flowRisks,readiness);
-    cards+=`<div class="dash-block-spacer"></div><div class="dash-block-spacer"></div>`+dashBlockCardHtml(bk,pct,doneC,totalC,delays,flowRisks,readiness);
+    overviewRows+=dashOverviewRowHtml(bk,pct,delays,flowRisks,readiness,projDelay);
+    cards+=`<div class="dash-block-spacer"></div><div class="dash-block-spacer"></div>`+dashBlockCardHtml(bk,pct,doneC,totalC,delays,flowRisks,readiness,projDelay);
   });
 
   const sitePct = siteTotalC? Math.round(siteDoneC/siteTotalC*100) : 0;
   const siteReadyPct = readyTotal? Math.round(readySum/readyTotal*100) : 100;
 
   let html=`<div class="lps-wrap">
-    <div class="lps-ctrl-row" style="margin-bottom:14px"><button class="export-btn" onclick="exportDashboard()">⬇ Export Dashboard Report (.xlsx)</button><button class="pdf-btn" onclick="exportViewToPDF()">🖨 Export PDF</button></div>
+    <div class="lps-ctrl-block" style="margin-bottom:14px">
+      <div class="lps-ctrl-row">
+        <span class="lps-ctrl-label">Target Completion Date</span>
+        <input type="date" value="${dashTargetDate}" onchange="dashSetTargetDate(this.value)" style="font-family:var(--mono);font-size:12px;padding:6px 10px;border:1px solid var(--border2);border-radius:7px;background:#fff;color:var(--text)">
+        <span style="font-size:11px;color:var(--muted);margin-left:10px">Used only for "Projected Delay" below — compares each block's forecast finish (at its real current pace) against this date</span>
+      </div>
+      <div class="lps-ctrl-row"><span class="lps-ctrl-label">Export</span><button class="export-btn" onclick="exportDashboard()">⬇ Export Dashboard Report (.xlsx)</button><button class="pdf-btn" onclick="exportViewToPDF()">🖨 Export PDF</button></div>
+    </div>
     <div class="section-heading">🎯 EXECUTIVE OVERVIEW</div>
     <div class="stat-row dash-top">
       <div class="stat-card stat-blue"><span class="n">${sitePct}%</span><span class="l">📈 Site-wide progress</span></div>
       <div class="stat-card stat-teal"><span class="n">${siteReadyPct}%</span><span class="l">🎯 Look-ahead ready (W4-6)</span></div>
+      <div class="stat-card ${worstDelayDays>0?'stat-red':'stat-green'}"><span class="n">${worstDelayDays===null?'—':worstDelayDays>0?worstDelayDays+'d LATE':worstDelayDays<0?Math.abs(worstDelayDays)+'d AHEAD':'On target'}</span><span class="l">📅 Worst projected delay${worstDelayBlock?' ('+worstDelayBlock.label+')':''}</span></div>
       <div class="stat-card stat-amber"><span class="n">${allDelayed}</span><span class="l">🕐 Delayed trades flagged</span></div>
       <div class="stat-card stat-red"><span class="n">${allCritical}</span><span class="l">⛔ Sequence conflicts</span></div>
       <div class="stat-card stat-green"><span class="n">${allRisks-allCritical}</span><span class="l">🛡️ Buffer warnings</span></div>
@@ -2152,7 +2254,7 @@ function renderDashboard(){
     ${statusLegendHtml()}
     <div class="dash-overview-wrap">
       <table class="dash-overview">
-        <thead><tr><th>Block</th><th>Progress</th><th>Look-Ahead Ready (W4-6)</th><th>Top delay</th><th>Top flow risk</th></tr></thead>
+        <thead><tr><th>Block</th><th>Progress</th><th>Look-Ahead Ready (W4-6)</th><th>Projected Delay</th><th>Top delay</th><th>Top flow risk</th></tr></thead>
         <tbody>${overviewRows}</tbody>
       </table>
     </div>
@@ -2517,6 +2619,148 @@ function updateInfoBar(blocksToShow,endDate,takt,lead,done,total,pct){
   `;
 }
 
+/* ═══════════════════════════════════════════════
+   HOW TO UPDATE — workflow flowchart
+   This app is a standalone HTML file with no server: it only remembers progress edits in
+   THIS browser's local storage. The Excel file is what actually survives across sessions,
+   devices, and team members — so this tab exists purely to make the two update workflows
+   (and the fact that the Excel file, not the app, is the real historical record) explicit.
+   Built as SVG for the same reason the LoB chart is — far more reliable to render than
+   complex CSS layouts.
+═══════════════════════════════════════════════ */
+function workflowSvg(){
+  const BOX_W=340, BOX_H=78, GAP=56;
+  const L1_X=50, L2_X=560; // left edge of each lane
+  const TOP_Y=86;
+  const arrowMarker=`<defs>
+    <marker id="wfArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+    <marker id="wfArrowBlue" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#1e40af"/>
+    </marker>
+    <marker id="wfArrowPurple" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#7c3aed"/>
+    </marker>
+  </defs>`;
+
+  function box(x,y,label,sub,color,lightColor){
+    return `<rect x="${x}" y="${y}" width="${BOX_W}" height="${BOX_H}" rx="12" fill="${lightColor}" stroke="${color}" stroke-width="2"/>
+      <text x="${x+BOX_W/2}" y="${y+32}" text-anchor="middle" font-size="14" font-weight="800" fill="${color}">${label}</text>
+      <text x="${x+BOX_W/2}" y="${y+52}" text-anchor="middle" font-size="11.5" fill="#374151">${sub}</text>`;
+  }
+  function downArrow(x,y1,y2,color,markerId){
+    return `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${color}" stroke-width="2.5" marker-end="url(#${markerId})"/>`;
+  }
+
+  // ── Lane 1: Option 1 — Update via the App (4 steps) ──
+  const l1cx=L1_X+BOX_W/2;
+  const l1Boxes=[
+    ['① 📥 Import the last Excel file','Load the most recent stored file into the App'],
+    ['② ✏️ Update status in the App','Click cells / use the edit drawer to record today\u2019s progress'],
+    ['③ 📤 Export to Excel','Creates the file for the next update cycle'],
+    ['④ 💾 Store the Excel','Save to your personal / shared folder — this file is the real history'],
+  ];
+  let lane1='';
+  l1Boxes.forEach((b,i)=>{
+    const y=TOP_Y+i*(BOX_H+GAP);
+    lane1+=box(L1_X,y,b[0],b[1],'#1e40af','#eff6ff');
+    if(i<l1Boxes.length-1) lane1+=downArrow(l1cx,y+BOX_H,y+BOX_H+GAP,'#1e40af','wfArrowBlue');
+  });
+  const l1LastY=TOP_Y+(l1Boxes.length-1)*(BOX_H+GAP);
+
+  // ── Lane 2: Option 2 — Update via Excel Template directly (2 steps) ──
+  const l2cx=L2_X+BOX_W/2;
+  const l2Boxes=[
+    ['① ✏️ Update status in the Excel Template','Edit "Level Done" and "Site Notes" directly — no need to open the App'],
+    ['② 💾 Store the Excel','Save — this file is the next update\u2019s starting point AND the real history'],
+  ];
+  let lane2='';
+  l2Boxes.forEach((b,i)=>{
+    const y=TOP_Y+i*(BOX_H+GAP);
+    lane2+=box(L2_X,y,b[0],b[1],'#7c3aed','#f5f3ff');
+    if(i<l2Boxes.length-1) lane2+=downArrow(l2cx,y+BOX_H,y+BOX_H+GAP,'#7c3aed','wfArrowPurple');
+  });
+  const l2LastY=TOP_Y+(l2Boxes.length-1)*(BOX_H+GAP);
+
+  // ── Shared file box — both lanes converge here; this is the actual persistent record ──
+  const fileY=Math.max(l1LastY,l2LastY)+BOX_H+90;
+  const fileX=(L1_X+L2_X+BOX_W)/2-190;
+  const fileW=380, fileH=90;
+  const fileCx=fileX+fileW/2;
+  const sharedFile=`<rect x="${fileX}" y="${fileY}" width="${fileW}" height="${fileH}" rx="14" fill="#fffbeb" stroke="#b45309" stroke-width="2.5"/>
+    <text x="${fileCx}" y="${fileY+34}" text-anchor="middle" font-size="15" font-weight="900" fill="#92400e">📁 The stored Excel file</text>
+    <text x="${fileCx}" y="${fileY+55}" text-anchor="middle" font-size="11.5" fill="#78350f">This is the actual project history — the App itself</text>
+    <text x="${fileCx}" y="${fileY+71}" text-anchor="middle" font-size="11.5" fill="#78350f">remembers nothing once you close this browser tab</text>`;
+
+  // Connectors from each lane's last box down into the shared file box
+  const conn1=`<line x1="${l1cx}" y1="${l1LastY+BOX_H}" x2="${l1cx}" y2="${l1LastY+BOX_H+30}" stroke="#1e40af" stroke-width="2.5"/>
+    <line x1="${l1cx}" y1="${l1LastY+BOX_H+30}" x2="${fileX+60}" y2="${l1LastY+BOX_H+30}" stroke="#1e40af" stroke-width="2.5"/>
+    <line x1="${fileX+60}" y1="${l1LastY+BOX_H+30}" x2="${fileX+60}" y2="${fileY}" stroke="#1e40af" stroke-width="2.5" marker-end="url(#wfArrowBlue)"/>`;
+  const conn2=`<line x1="${l2cx}" y1="${l2LastY+BOX_H}" x2="${l2cx}" y2="${l2LastY+BOX_H+30}" stroke="#7c3aed" stroke-width="2.5"/>
+    <line x1="${l2cx}" y1="${l2LastY+BOX_H+30}" x2="${fileX+fileW-60}" y2="${l2LastY+BOX_H+30}" stroke="#7c3aed" stroke-width="2.5"/>
+    <line x1="${fileX+fileW-60}" y1="${l2LastY+BOX_H+30}" x2="${fileX+fileW-60}" y2="${fileY}" stroke="#7c3aed" stroke-width="2.5" marker-end="url(#wfArrowPurple)"/>`;
+
+  // Loop-back dashed arrows from the shared file back up to each lane's first box (next cycle)
+  const loopY=fileY+fileH+36;
+  const loop1=`<line x1="${fileX+60}" y1="${fileY+fileH}" x2="${fileX+60}" y2="${loopY}" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5,4"/>
+    <line x1="${fileX+60}" y1="${loopY}" x2="${L1_X-30}" y2="${loopY}" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5,4"/>
+    <line x1="${L1_X-30}" y1="${loopY}" x2="${L1_X-30}" y2="${TOP_Y+BOX_H/2}" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5,4"/>
+    <line x1="${L1_X-30}" y1="${TOP_Y+BOX_H/2}" x2="${L1_X}" y2="${TOP_Y+BOX_H/2}" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5,4" marker-end="url(#wfArrow)"/>
+    <text x="${L1_X-35}" y="${loopY-8}" text-anchor="end" font-size="10.5" fill="#64748b" font-style="italic">next update cycle</text>`;
+  const loop2=`<line x1="${fileX+fileW-60}" y1="${fileY+fileH}" x2="${fileX+fileW-60}" y2="${loopY}" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5,4"/>
+    <line x1="${fileX+fileW-60}" y1="${loopY}" x2="${L2_X+BOX_W+30}" y2="${loopY}" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5,4"/>
+    <line x1="${L2_X+BOX_W+30}" y1="${loopY}" x2="${L2_X+BOX_W+30}" y2="${TOP_Y+BOX_H/2}" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5,4"/>
+    <line x1="${L2_X+BOX_W+30}" y1="${TOP_Y+BOX_H/2}" x2="${L2_X+BOX_W}" y2="${TOP_Y+BOX_H/2}" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5,4" marker-end="url(#wfArrow)"/>
+    <text x="${L2_X+BOX_W+35}" y="${loopY-8}" text-anchor="start" font-size="10.5" fill="#64748b" font-style="italic">next update cycle</text>`;
+
+  // Lane titles
+  const titles=`<text x="${l1cx}" y="34" text-anchor="middle" font-size="16" font-weight="900" fill="#1e40af">OPTION 1 — Update via the App</text>
+    <text x="${l2cx}" y="34" text-anchor="middle" font-size="16" font-weight="900" fill="#7c3aed">OPTION 2 — Update via Excel Template</text>`;
+
+  const chartH=loopY+30;
+  const chartW=980;
+  return `<svg width="${chartW}" height="${chartH}" viewBox="0 0 ${chartW} ${chartH}" xmlns="http://www.w3.org/2000/svg">
+    ${arrowMarker}
+    <rect x="0" y="0" width="${chartW}" height="${chartH}" fill="#ffffff"/>
+    ${titles}
+    ${lane1}${lane2}
+    ${conn1}${conn2}
+    ${sharedFile}
+    ${loop1}${loop2}
+  </svg>`;
+}
+
+function renderWorkflow(){
+  const html=`<div class="lps-wrap">
+    <div class="section-heading">🔄 HOW TO KEEP TRACK OF PROGRESS HISTORY</div>
+    <div class="lob-caveat" style="background:#eff6ff;border-color:#bfdbfe;color:#1e3a8a">
+      ℹ️ This app is a single, standalone HTML file with no server — it only remembers your edits in <strong>this browser's local storage</strong>. Close the tab on a different device, clear your browser data, or send this file to a teammate, and none of that history travels with it. The <strong>Excel file</strong> you import/export is what actually carries the project's history forward. Pick whichever workflow below fits how your team works — you can switch between them anytime, as long as everyone keeps updating the <em>same</em> Excel file each cycle.
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">📊 Two ways to update progress <span class="cnt">pick one, or mix as needed</span></div>
+      <div class="lob-scroll">${workflowSvg()}</div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">🆚 Which option should I use?</div>
+      <table class="dtbl">
+        <thead><tr><th style="width:20%"></th><th style="width:40%">Option 1 — via the App</th><th style="width:40%">Option 2 — via Excel Template</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Best for</strong></td><td>Anyone who wants to see the Matrix, Flow, Look-Ahead, Dashboard, or LoB views while updating</td><td>Quick updates from the field, or teams who just want a simple spreadsheet log</td></tr>
+          <tr><td><strong>Where you edit</strong></td><td>In the App — click any cell or use the edit drawer</td><td>Directly in Excel — the "Import Template" sheet</td></tr>
+          <tr><td><strong>Extra step</strong></td><td>Import the file first, export it again after</td><td>None — edit and save</td></tr>
+          <tr><td><strong>Visual feedback</strong></td><td>Immediate — see the Matrix/Dashboard update live</td><td>None until you next import into the App</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+  document.getElementById('main-wrap').innerHTML=html;
+  document.getElementById('info-bar').innerHTML=`
+    <div class="info-item">This tab is informational only — it doesn't read or change any project data</div>
+    <div class="info-item">Tip: name each exported file with the date (e.g. "Takt_Progress_2026-07-17.xlsx") so your folder itself becomes a dated history log</div>
+  `;
+}
+
 /* ═══════════ TOOLTIP via delegation ═══════════ */
 const tipEl=document.getElementById('tip');
 document.addEventListener('mousemove',e=>{
@@ -2547,90 +2791,126 @@ async function exportAllBlocks(){
 
   const wb = new ExcelJS.Workbook();
   const exportDate=new Date().toLocaleDateString('en-SG',{day:'2-digit',month:'short',year:'numeric'});
+  const TPL='Import Template';
 
-  // ── Sheet 1: Progress Summary (all blocks) — READ ONLY REPORT, not for re-import.
-  //    Use the "Import Template" sheet to update progress and re-import.
-  const wsSummary=wb.addWorksheet('Progress Summary');
-  wsSummary.columns=[{width:14},{width:22},{width:12},{width:12},{width:12},{width:12},{width:11},{width:14},{width:50},{width:14}];
-  xlHeaderRow(wsSummary,['Block','Trade','Group','Max Level (N)','Level Done','Remaining','Progress %','Status','Site Notes','Last Updated']);
-  BLOCKS.forEach(bk=>{
-    TRADES.forEach(tr=>{
-      if(NA_402C.has(tr.id)&&bk.id==='402C') return;
-      const done=Math.min(CURRENT[bk.id][tr.id]||0,bk.N);
-      const rem=bk.N-done;
-      const pct=Math.round(done/bk.N*100);
-      const note=NOTES[bk.id][tr.id]||'';
-      const row=wsSummary.addRow([bk.label+' ('+bk.sub+')',tr.name,tr.grp,bk.N,done,rem,pct/100,xlProgressStatusLabel(pct),note,exportDate]);
-      row.getCell(7).numFmt='0%';
-      xlApplyColor(row.getCell(7),xlPctColorKey(pct));
-      xlApplyColor(row.getCell(8),xlPctColorKey(pct));
-    });
-    wsSummary.addRow([]); // blank spacer row between blocks
-  });
-  wsSummary.views=[{state:'frozen',ySplit:1}];
-
-  // ── Sheet 2+: One sheet per block — also READ ONLY (see Import Template to update) ──
-  BLOCKS.forEach(bk=>{
-    const ws=wb.addWorksheet('Block '+bk.id);
-    ws.columns=[{width:22},{width:12},{width:13},{width:13},{width:16},{width:11},{width:14},{width:10},{width:55}];
-    ws.mergeCells('A1:I1'); ws.getCell('A1').value='Takt Plan Progress — Block: '+bk.label+' ('+bk.sub+')'; ws.getCell('A1').font={bold:true,size:13};
-    ws.mergeCells('A2:I2'); ws.getCell('A2').value='Exported: '+exportDate+'  ·  This sheet is a read-only report. To update progress, edit the "Import Template" sheet and re-import.'; ws.getCell('A2').font={italic:true,color:{argb:'FF6B7280'}};
-    ws.addRow([]);
-    xlHeaderRow(ws,['Trade','Group','Max Level (N)','Level Done','Remaining Levels','Progress %','Status','Complete?','Site Notes']);
-    TRADES.forEach(tr=>{
-      if(NA_402C.has(tr.id)&&bk.id==='402C') return;
-      const done=Math.min(CURRENT[bk.id][tr.id]||0,bk.N);
-      const rem=bk.N-done;
-      const pct=Math.round(done/bk.N*100);
-      const note=NOTES[bk.id][tr.id]||'';
-      const isComplete=done>=bk.N;
-      const row=ws.addRow([tr.name,tr.grp,bk.N,done,rem,pct/100,xlProgressStatusLabel(pct),isComplete?'Yes':'No',note]);
-      row.getCell(6).numFmt='0%';
-      xlApplyColor(row.getCell(6),xlPctColorKey(pct));
-      xlApplyColor(row.getCell(7),xlPctColorKey(pct));
-      xlApplyColor(row.getCell(8),isComplete?'green':'gray');
-    });
-    ws.views=[{state:'frozen',ySplit:4}];
-  });
-
-  // ── Sheet: Import Template — THE sheet to edit and re-import ──
-  const wsTpl=wb.addWorksheet('Import Template');
-  wsTpl.columns=[{width:9},{width:12},{width:22},{width:15},{width:12},{width:20},{width:55}];
-  wsTpl.mergeCells('A1:G1');
+  // ── Sheet 1: Import Template — built FIRST so we know each trade's exact row number,
+  //    letting every other sheet link to it by formula instead of a static snapshot value.
+  //    Columns: Block(A) TradeID(B) TradeName(C) MaxLevel(D) LevelDone(E) SkippedLevels(F)
+  //             Status(G) SiteNotes(H)
+  const wsTpl=wb.addWorksheet(TPL);
+  wsTpl.columns=[{width:9},{width:12},{width:22},{width:13},{width:12},{width:16},{width:16},{width:50}];
+  wsTpl.mergeCells('A1:H1');
   wsTpl.getCell('A1').value='✏️ TAKT PLAN — EDIT THIS SHEET, THEN RE-IMPORT';
   wsTpl.getCell('A1').font={bold:true,size:13,color:{argb:'FF1E40AF'}};
   wsTpl.getCell('A1').fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFDCEAFB'}};
   const instructions=[
     'HOW TO UPDATE PROGRESS:',
-    '  1. Edit ONLY the two columns marked ✏️ EDIT below: "Level Done" and "Site Notes".',
+    '  1. Edit ONLY the columns marked ✏️ EDIT below: "Level Done", "Skipped Levels", "Site Notes".',
     '  2. Do NOT edit "Block", "Trade ID", "Trade Name", or "Max Level (N)" — these identify',
     '     which row updates which trade, and the import will fail to match rows if changed.',
-    '  3. "Status" is shown for reference only — it is NOT read on import, it just updates itself',
-    '     automatically once you change "Level Done".',
-    '  4. Save this file, then use "⬆ Import from Excel" in the app and select it.',
-    '  5. Block must be one of: 402A, 402B, 404A, 404B, 406A, 406B, 402C — do not retype it.',
-    '  6. Level Done must be a whole number from 0 up to "Max Level (N)" for that row.',
+    '  3. "Level Done" is a single cumulative number (highest level reached) — it can\'t show a',
+    '     crew that worked out of order.',
+    '     SKIPPED LEVELS RULE: put the highest level reached in "Level Done", then list any',
+    '     levels BELOW that number which are NOT actually finished yet in "Skipped Levels".',
+    '     Example: crew has completed levels 2,3,6,7,9,10 (levels 1,4,5,8 are NOT done):',
+    '        Level Done = 10        Skipped Levels = 1,4,5,8',
+    '     "Skipped Levels" is a manual note only — the App still treats Level Done as fully',
+    '     complete up to that number everywhere (Matrix, Flow, Dashboard, LoB, % complete).',
+    '     It does not recalculate around the gap — this just keeps the real information on',
+    '     record instead of losing it. If the gap matters, also mention it in "Site Notes".',
+    '  4. "Status" is shown for reference only — it is NOT read on import, it recalculates',
+    '     itself automatically once you change "Level Done".',
+    '  5. Save this file, then use "⬆ Import from Excel" in the app and select it.',
+    '  6. The "Progress Summary" and "Block ___" sheets are LIVE FORMULAS pointing at this',
+    '     sheet — editing here updates them automatically, in Excel, with no need to reopen',
+    '     the app or re-export, even if you never touch the app at all (Option 2 workflow).',
+    '  7. Block must be one of: 402A, 402B, 404A, 404B, 406A, 406B, 402C — do not retype it.',
+    '  8. Level Done must be a whole number from 0 up to "Max Level (N)" for that row.',
   ];
-  instructions.forEach(line=>{ const r=wsTpl.addRow([line]); if(line.startsWith('HOW')) r.font={bold:true}; });
+  instructions.forEach(line=>{ const r=wsTpl.addRow([line]); if(line.startsWith('HOW')) r.font={bold:true}; if(line.trim().startsWith('Level Done = ')) r.font={bold:true,color:{argb:'FF1E40AF'}}; });
   wsTpl.addRow([]);
-  const pointerRow=wsTpl.addRow(['🔒 (do not edit)','🔒 (do not edit)','🔒 (do not edit)','🔒 (do not edit)','✏️ EDIT THIS','(reference only)','✏️ EDIT THIS']);
+  const pointerRow=wsTpl.addRow(['🔒 (do not edit)','🔒 (do not edit)','🔒 (do not edit)','🔒 (do not edit)','✏️ EDIT THIS','✏️ EDIT THIS','(reference only)','✏️ EDIT THIS']);
   pointerRow.eachCell(c=>{ c.font={italic:true,size:10,color:{argb:'FF6B7280'}}; });
-  const hdrRow=xlHeaderRow(wsTpl,['Block','Trade ID','Trade Name','Max Level (N)','Level Done','Status','Site Notes']);
-  xlApplyColor(hdrRow.getCell(5),'blue'); xlApplyColor(hdrRow.getCell(7),'blue'); // highlight the two editable columns
-  const dataStartRow=wsTpl.rowCount+1;
+  const hdrRow=xlHeaderRow(wsTpl,['Block','Trade ID','Trade Name','Max Level (N)','Level Done','Skipped Levels','Status','Site Notes']);
+  [5,6,8].forEach(c=>xlApplyColor(hdrRow.getCell(c),'blue')); // highlight the three editable columns
+
+  const tplRow={}; // tplRow[blockId][tradeId] = row number in Import Template, for formula refs
   BLOCKS.forEach(bk=>{
+    tplRow[bk.id]={};
     TRADES.forEach(tr=>{
       if(NA_402C.has(tr.id)&&bk.id==='402C') return;
       const done=Math.min(CURRENT[bk.id][tr.id]||0,bk.N);
       const pct=Math.round(done/bk.N*100);
       const note=NOTES[bk.id][tr.id]||'';
-      const row=wsTpl.addRow([bk.id,tr.id,tr.name,bk.N,done,xlProgressStatusLabel(pct),note]);
-      xlApplyColor(row.getCell(6),xlPctColorKey(pct));
-      row.getCell(5).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFDE7'}}; // pale highlight = editable
-      row.getCell(7).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFDE7'}};
+      const skipped=SKIPPED[bk.id][tr.id]||'';
+      const row=wsTpl.addRow([bk.id,tr.id,tr.name,bk.N,done,skipped,xlProgressStatusLabel(pct),note]);
+      tplRow[bk.id][tr.id]=row.number;
+      xlApplyColor(row.getCell(7),xlPctColorKey(pct));
+      row.getCell(5).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFDE7'}}; // pale = editable
+      row.getCell(6).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFDE7'}};
+      row.getCell(8).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFDE7'}};
     });
   });
-  wsTpl.views=[{state:'frozen',ySplit:wsTpl.rowCount-BLOCKS.reduce((s,bk)=>s+TRADES.filter(tr=>!(NA_402C.has(tr.id)&&bk.id==='402C')).length,0)}];
+  const firstDataRow=hdrRow.number+1;
+  wsTpl.views=[{state:'frozen',ySplit:hdrRow.number}];
+
+  // ── Sheet 2: Progress Summary (all blocks) — LIVE FORMULAS linked to Import Template.
+  //    Edit "Level Done" in Import Template and this sheet updates itself in Excel, with no
+  //    need to reopen the app — including the color coding, via conditional formatting.
+  const wsSummary=wb.addWorksheet('Progress Summary');
+  wsSummary.columns=[{width:14},{width:22},{width:12},{width:12},{width:12},{width:16},{width:12},{width:11},{width:50},{width:14}];
+  xlHeaderRow(wsSummary,['Block','Trade','Group','Max Level (N)','Level Done','Skipped Levels','Remaining','Progress %','Site Notes','Last Updated']);
+  const summaryPctCells=[];
+  BLOCKS.forEach(bk=>{
+    TRADES.forEach(tr=>{
+      if(NA_402C.has(tr.id)&&bk.id==='402C') return;
+      const tRow=tplRow[bk.id][tr.id];
+      const row=wsSummary.addRow([
+        bk.label+' ('+bk.sub+')', tr.name, tr.grp, bk.N,
+        {formula:`'${TPL}'!E${tRow}`},
+        {formula:`'${TPL}'!F${tRow}`},
+        null, null,
+        {formula:`'${TPL}'!H${tRow}`},
+        exportDate
+      ]);
+      row.getCell(7).value={formula:`D${row.number}-E${row.number}`};
+      row.getCell(8).value={formula:`E${row.number}/D${row.number}`};
+      row.getCell(8).numFmt='0%';
+      summaryPctCells.push(`H${row.number}`);
+    });
+    wsSummary.addRow([]); // blank spacer row between blocks
+  });
+  applyPctConditionalFormat(wsSummary,summaryPctCells);
+  wsSummary.views=[{state:'frozen',ySplit:1}];
+
+  // ── Sheet 3+: One sheet per block — also LIVE FORMULAS linked to Import Template ──
+  BLOCKS.forEach(bk=>{
+    const ws=wb.addWorksheet('Block '+bk.id);
+    ws.columns=[{width:22},{width:12},{width:13},{width:13},{width:16},{width:16},{width:11},{width:10},{width:55}];
+    ws.mergeCells('A1:I1'); ws.getCell('A1').value='Takt Plan Progress — Block: '+bk.label+' ('+bk.sub+')'; ws.getCell('A1').font={bold:true,size:13};
+    ws.mergeCells('A2:I2'); ws.getCell('A2').value='Exported: '+exportDate+'  ·  Live-linked to the "Import Template" sheet — updates automatically when you edit it, no need to reopen the app.'; ws.getCell('A2').font={italic:true,color:{argb:'FF6B7280'}};
+    ws.addRow([]);
+    xlHeaderRow(ws,['Trade','Group','Max Level (N)','Level Done','Skipped Levels','Remaining Levels','Progress %','Complete?','Site Notes']);
+    const blockPctCells=[];
+    TRADES.forEach(tr=>{
+      if(NA_402C.has(tr.id)&&bk.id==='402C') return;
+      const tRow=tplRow[bk.id][tr.id];
+      const row=ws.addRow([
+        tr.name, tr.grp, bk.N,
+        {formula:`'${TPL}'!E${tRow}`},
+        {formula:`'${TPL}'!F${tRow}`},
+        null, null, null,
+        {formula:`'${TPL}'!H${tRow}`}
+      ]);
+      row.getCell(6).value={formula:`C${row.number}-D${row.number}`};
+      row.getCell(7).value={formula:`D${row.number}/C${row.number}`};
+      row.getCell(7).numFmt='0%';
+      row.getCell(8).value={formula:`IF(D${row.number}>=C${row.number},"Yes","No")`};
+      blockPctCells.push(`G${row.number}`);
+    });
+    applyPctConditionalFormat(ws,blockPctCells);
+    ws.views=[{state:'frozen',ySplit:4}];
+  });
 
   const today=new Date().toISOString().slice(0,10);
   await xlDownload(wb,`Takt_Progress_${today}.xlsx`);
@@ -2825,12 +3105,14 @@ async function exportDashboard(){
   if(typeof ExcelJS==='undefined'){alert('ExcelJS not loaded yet. Please wait and try again.');return;}
 
   const takt=parseInt(document.getElementById('ctrl-takt').value)||7;
+  const targetDate=new Date(dashTargetDate);
   const wb=new ExcelJS.Workbook();
 
   // ── Sheet 1: Block overview ──
   const wsOverview=wb.addWorksheet('Dashboard Overview');
-  wsOverview.columns=[{width:9},{width:8},{width:11},{width:15},{width:15},{width:11},{width:14},{width:15},{width:14},{width:20},{width:22},{width:30},{width:14}];
-  xlHeaderRow(wsOverview,['Block','Sub-contractor','N (levels)','Level-cells Done','Level-cells Total','Progress %','Progress Status','Look-Ahead Ready % (W4-6)','Readiness Status','Top Delay (trade)','Top Delay (levels behind)','Worst Flow Risk','Flow Risk Severity']);
+  wsOverview.columns=[{width:9},{width:8},{width:11},{width:15},{width:15},{width:11},{width:14},{width:15},{width:14},{width:16},{width:14},{width:20},{width:22},{width:30},{width:14}];
+  xlHeaderRow(wsOverview,['Block','Sub-contractor','N (levels)','Level-cells Done','Level-cells Total','Progress %','Progress Status','Look-Ahead Ready % (W4-6)','Readiness Status','Projected Finish (at current pace)','Delay vs Target, days (+ = late, − = ahead)','Top Delay (trade)','Top Delay (levels behind)','Worst Flow Risk','Flow Risk Severity']);
+  wsOverview.getCell('A1').note='Target Completion Date used: '+dashTargetDate;
   let siteTotalC=0, siteDoneC=0;
   const perBlock=[];
   BLOCKS.forEach(bk=>{
@@ -2844,11 +3126,14 @@ async function exportDashboard(){
     const delays=computeBlockDelays(bk,takt).filter(d=>d.delayLevels>0).sort((a,b)=>b.delayLevels-a.delayLevels).slice(0,5);
     const flowRisks=computeFlowRisk(bk);
     const readiness=computeBlockReadiness(bk,4,6);
+    const projDelay=computeBlockProjectedDelay(bk,takt,targetDate);
     const worst=flowRisks.find(r=>r.sev==='critical')||flowRisks[0];
 
     const row=wsOverview.addRow([
       bk.label, bk.sub, bk.N, doneC, totalC, pct/100, xlProgressStatusLabel(pct),
       readiness.total?readiness.pct/100:null, readiness.total?xlProgressStatusLabel(readiness.pct):'—',
+      projDelay.complete?'Complete':fmtS(projDelay.projectedFinish),
+      projDelay.complete?0:projDelay.delayDays,
       delays[0]?delays[0].tr.name:'—',
       delays[0]?delays[0].delayLevels:0,
       worst?(worst.prevTr.name+' \u2192 '+worst.currTr.name):'—',
@@ -2858,7 +3143,9 @@ async function exportDashboard(){
     xlApplyColor(row.getCell(6),xlPctColorKey(pct));
     xlApplyColor(row.getCell(7),xlPctColorKey(pct));
     if(readiness.total){ xlApplyColor(row.getCell(8),xlPctColorKey(readiness.pct)); xlApplyColor(row.getCell(9),xlPctColorKey(readiness.pct)); }
-    xlApplyColor(row.getCell(13),worst?xlSeverityColorKey(worst.sev):'green');
+    if(!projDelay.complete) xlApplyColor(row.getCell(11),projDelay.delayDays>14?'red':projDelay.delayDays>0?'amber':'green');
+    else xlApplyColor(row.getCell(11),'green');
+    xlApplyColor(row.getCell(15),worst?xlSeverityColorKey(worst.sev):'green');
     perBlock.push({bk,delays,flowRisks});
   });
   const sitePct=siteTotalC?Math.round(siteDoneC/siteTotalC*100):0;
@@ -3169,13 +3456,13 @@ function parseImportFile(file){
 
 function confirmImport(){
   if(!importData||importData.length===0) return;
-  let updated=0, skipped=0;
+  let updated=0, skippedCount=0;
   importData.forEach(r=>{
     const bkId=String(r['Block']||'').trim();
     const trId=String(r['Trade ID']||'').trim();
     const bk=BLOCKS.find(b=>b.id===bkId);
     const tr=TRADES.find(t=>t.id===trId);
-    if(!bk||!tr) {skipped++;return;}
+    if(!bk||!tr) {skippedCount++;return;}
     const rawLvl=r['Level Done'];
     if(rawLvl!==''&&rawLvl!==null&&rawLvl!==undefined){
       const lvl=Math.max(0,Math.min(bk.N,parseInt(rawLvl)||0));
@@ -3183,6 +3470,7 @@ function confirmImport(){
     }
     const note=String(r['Site Notes']||'').trim();
     NOTES[bkId][trId]=note;
+    if('Skipped Levels' in r) SKIPPED[bkId][trId]=String(r['Skipped Levels']||'').trim();
     updated++;
   });
   saveToLS();
@@ -3204,7 +3492,7 @@ function confirmImport(){
   // brief toast
   const toast=document.createElement('div');
   toast.style.cssText='position:fixed;bottom:24px;right:24px;background:#15803d;color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;z-index:2000;box-shadow:0 4px 16px rgba(0,0,0,.2)';
-  toast.textContent=`✓ Imported ${updated} rows (${skipped} skipped). All views updated.`;
+  toast.textContent=`✓ Imported ${updated} rows (${skippedCount} skipped). All views updated.`;
   document.body.appendChild(toast);
   setTimeout(()=>toast.remove(),3500);
 }
